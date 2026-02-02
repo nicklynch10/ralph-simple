@@ -1,101 +1,28 @@
 # Ralph for Kimi Code CLI
 
-Ralph is an autonomous AI agent loop that runs Kimi Code CLI repeatedly until all PRD (Product Requirements Document) items are complete. Each iteration is a fresh instance with clean context. Memory persists via git history, `progress.txt`, and `prd.json`.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This is a port of the original [Ralph](https://github.com/snarktank/ralph) project (built for Amp and Claude Code) to work with [Kimi Code CLI](https://github.com/moonshotai/kimi-cli).
+Ralph is an autonomous AI agent loop that runs [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) repeatedly until all PRD (Product Requirements Document) items are complete. Each iteration is a fresh instance with clean context. Memory persists via git history, `progress.txt`, and `prd.json`.
+
+This is a port of the original [Ralph](https://github.com/snarktank/ralph) project (built for Amp and Claude Code) to work with Kimi Code CLI.
 
 Based on the [Ralph pattern](https://ghuntley.com/ralph) by Geoffrey Huntley.
 
-## Prerequisites
+---
 
-- [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) installed and authenticated
-- Git repository for your project
-- PowerShell (Windows) or Bash (Linux/macOS - use `ralph.sh`)
+## Table of Contents
 
-## Quick Start
+- [How It Works](#how-it-works)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Detailed Setup](#detailed-setup)
+- [Usage](#usage)
+- [Creating PRDs](#creating-prds)
+- [Progress Tracking](#progress-tracking)
+- [Troubleshooting](#troubleshooting)
+- [Architecture](#architecture)
 
-### 1. Copy Ralph Files to Your Project
-
-From your project root:
-
-```powershell
-# Create the ralph directory
-mkdir -p scripts/ralph
-
-# Copy the Ralph files
-cp /path/to/ralph-kimi/ralph.ps1 scripts/ralph/
-cp /path/to/ralph-kimi/KIMI.md scripts/ralph/
-
-# Make the script executable (if needed)
-chmod +x scripts/ralph/ralph.ps1  # Linux/Mac only
-```
-
-### 2. Copy Skills to Your Kimi Config (Optional but Recommended)
-
-Copy the skills to your Kimi config for use across all projects:
-
-```powershell
-# Windows
-Copy-Item -Recurse skills/prd $env:USERPROFILE\.kimi\skills\
-Copy-Item -Recurse skills/ralph $env:USERPROFILE\.kimi\skills\
-
-# Or use the standard agents directory
-Copy-Item -Recurse skills/prd $env:USERPROFILE\.config\agents\skills\
-Copy-Item -Recurse skills/ralph $env:USERPROFILE\.config\agents\skills\
-```
-
-```bash
-# Linux/Mac
-cp -r skills/prd ~/.kimi/skills/
-cp -r skills/ralph ~/.kimi/skills/
-
-# Or use the standard agents directory
-cp -r skills/prd ~/.config/agents/skills/
-cp -r skills/ralph ~/.config/agents/skills/
-```
-
-### 3. Create a PRD
-
-Use the PRD skill to generate a detailed requirements document:
-
-```
-/skill:prd
-```
-
-Answer the clarifying questions. The skill saves output to `tasks/prd-[feature-name].md`.
-
-### 4. Convert PRD to Ralph Format
-
-Use the Ralph skill to convert the markdown PRD to JSON:
-
-```
-/skill:ralph
-```
-
-This creates `prd.json` with user stories structured for autonomous execution.
-
-### 5. Run Ralph
-
-```powershell
-# PowerShell
-.\scripts\ralph\ralph.ps1 [max_iterations]
-
-# Default is 10 iterations
-.\scripts\ralph\ralph.ps1
-
-# Or specify a custom number
-.\scripts\ralph\ralph.ps1 20
-```
-
-Ralph will:
-- Create a feature branch (from PRD `branchName`)
-- Pick the highest priority story where `passes: false`
-- Implement that single story
-- Run quality checks (typecheck, tests)
-- Commit if checks pass
-- Update `prd.json` to mark story as `passes: true`
-- Append learnings to `progress.txt`
-- Repeat until all stories pass or max iterations reached
+---
 
 ## How It Works
 
@@ -118,132 +45,387 @@ Ralph will:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Each iteration spawns a new Kimi instance with clean context. The only memory between iterations is:
-- Git history (commits from previous iterations)
-- `progress.txt` (learnings and context)
-- `prd.json` (which stories are done)
+**Each iteration spawns a new Kimi instance with clean context.** The only memory between iterations is:
+- **Git history** (commits from previous iterations)
+- **`progress.txt`** (learnings and context)
+- **`prd.json`** (which stories are done)
 
-## File Structure
+---
 
-| File | Purpose |
-|------|---------|
-| `ralph.ps1` | The PowerShell loop that spawns fresh Kimi instances |
-| `KIMI.md` | Prompt template for Kimi Code CLI |
-| `prd.json` | User stories with passes status (the task list) |
-| `prd.json.example` | Example PRD format for reference |
-| `progress.txt` | Append-only learnings for future iterations |
-| `skills/prd/` | Skill for generating PRDs |
-| `skills/ralph/` | Skill for converting PRDs to JSON format |
+## Prerequisites
 
-## Writing Good PRDs
+- [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) installed and authenticated
+- Git repository for your project
+- PowerShell (Windows) or Bash (Linux/macOS)
 
-Each PRD item should be small enough to complete in one context window. If a task is too big, the LLM runs out of context before finishing and produces poor code.
+### Installing Kimi Code CLI
 
-### Right-sized stories:
+```bash
+# Using pip
+pip install kimi-cli
+
+# Or using uv
+uv tool install kimi-cli
+
+# Authenticate
+kimi login
+```
+
+---
+
+## Quick Start
+
+### 1. Install Ralph in Your Project
+
+```powershell
+# Create the ralph directory
+mkdir -p scripts/ralph
+
+# Download the files (PowerShell)
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nicklynch10/ralph-kimi/main/ralph.ps1" -OutFile "scripts/ralph/ralph.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nicklynch10/ralph-kimi/main/KIMI.md" -OutFile "scripts/ralph/KIMI.md"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nicklynch10/ralph-kimi/main/prd.json.example" -OutFile "scripts/ralph/prd.json.example"
+
+# Or clone and copy
+git clone https://github.com/nicklynch10/ralph-kimi.git /tmp/ralph-kimi
+copy /tmp/ralph-kimi/ralph.ps1 scripts/ralph/
+copy /tmp/ralph-kimi/KIMI.md scripts/ralph/
+copy /tmp/ralph-kimi/prd.json.example scripts/ralph/
+```
+
+### 2. Install Skills (Optional but Recommended)
+
+Copy the skills to your Kimi config for use across all projects:
+
+```powershell
+# Windows - create skills directory if it doesn't exist
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kimi\skills"
+
+# Copy skills
+Copy-Item -Recurse "scripts/ralph/skills/prd" "$env:USERPROFILE\.kimi\skills\"
+Copy-Item -Recurse "scripts/ralph/skills/ralph" "$env:USERPROFILE\.kimi\skills\"
+```
+
+```bash
+# Linux/Mac
+mkdir -p ~/.kimi/skills
+cp -r scripts/ralph/skills/prd ~/.kimi/skills/
+cp -r scripts/ralph/skills/ralph ~/.kimi/skills/
+```
+
+### 3. Create Your First PRD
+
+Start Kimi and use the PRD skill:
+
+```bash
+kimi
+```
+
+Then type:
+```
+/skill:prd
+```
+
+Answer the questions to generate a PRD. It will be saved to `tasks/prd-[feature-name].md`.
+
+### 4. Convert to Ralph Format
+
+```
+/skill:ralph
+```
+
+This converts your markdown PRD to `scripts/ralph/prd.json`.
+
+### 5. Run Ralph
+
+```powershell
+# Windows PowerShell
+.\scripts\ralph\ralph.ps1
+
+# Or specify iterations
+.\scripts\ralph\ralph.ps1 20
+```
+
+```bash
+# Linux/Mac
+./scripts/ralph/ralph.sh
+
+# Or specify iterations
+./scripts/ralph/ralph.sh 20
+```
+
+---
+
+## Detailed Setup
+
+### Project Structure After Setup
+
+```
+your-project/
+├── scripts/
+│   └── ralph/
+│       ├── ralph.ps1          # Main script (Windows)
+│       ├── ralph.sh           # Main script (Linux/Mac)
+│       ├── KIMI.md            # Prompt template
+│       ├── prd.json           # Your tasks (generated)
+│       ├── prd.json.example   # Example format
+│       ├── progress.txt       # Learnings log (generated)
+│       └── archive/           # Old runs (auto-created)
+├── tasks/
+│   └── prd-your-feature.md    # Your PRD
+├── src/                       # Your code
+└── ...
+```
+
+### Customizing KIMI.md
+
+Edit `scripts/ralph/KIMI.md` to add:
+
+- **Project-specific quality checks** (e.g., `npm run typecheck`, `pytest`)
+- **Code conventions** specific to your stack
+- **Common gotchas** in your codebase
+
+Example additions:
+```markdown
+## Project-Specific Commands
+
+Run these quality checks before committing:
+- `npm run typecheck` - TypeScript type checking
+- `npm run lint` - ESLint
+- `npm run test:unit` - Unit tests
+
+## Code Conventions
+
+- Use TypeScript strict mode
+- Prefer functional components
+- Use `async/await` over callbacks
+```
+
+---
+
+## Usage
+
+### Running Ralph
+
+```powershell
+# Default: 10 iterations
+.\scripts\ralph\ralph.ps1
+
+# Custom iterations
+.\scripts\ralph\ralph.ps1 5
+
+# Unlimited (be careful!)
+.\scripts\ralph\ralph.ps1 100
+```
+
+### What Ralph Does Each Iteration
+
+1. **Reads** `prd.json` and `progress.txt`
+2. **Picks** the highest priority incomplete story
+3. **Implements** that single story
+4. **Runs** quality checks
+5. **Commits** changes with message: `feat: [Story ID] - [Story Title]`
+6. **Updates** `prd.json` to mark story complete
+7. **Appends** learnings to `progress.txt`
+8. **Repeats** until all stories done or max iterations reached
+
+### Stopping Ralph
+
+- Press `Ctrl+C` to stop gracefully
+- Ralph can be restarted and will pick up where it left off
+
+---
+
+## Creating PRDs
+
+### Good Story Size
+
+**✅ Right-sized stories (completable in one iteration):**
 - Add a database column and migration
 - Add a UI component to an existing page
 - Update a server action with new logic
 - Add a filter dropdown to a list
 
-### Too big (split these):
+**❌ Too big (split these):**
 - "Build the entire dashboard"
 - "Add authentication"
 - "Refactor the API"
 
-## Progress Tracking
+### PRD JSON Format
 
-After each iteration, Ralph updates `progress.txt` with learnings. Check status anytime:
-
-```powershell
-# See which stories are done
-cat prd.json | ConvertFrom-Json | Select-Object -ExpandProperty userStories | Select-Object id, title, passes
-
-# See learnings from previous iterations
-cat progress.txt
-
-# Check git history
-git log --oneline -10
+```json
+{
+  "project": "MyApp",
+  "branchName": "ralph/feature-name",
+  "description": "Feature description",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Story title",
+      "description": "As a user, I want...",
+      "acceptanceCriteria": [
+        "Specific criterion 1",
+        "Specific criterion 2",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
 ```
 
-## Customizing for Your Project
+---
 
-After copying `KIMI.md` to your project, customize it for your project:
+## Progress Tracking
 
-- Add project-specific quality check commands
-- Include codebase conventions
-- Add common gotchas for your stack
+### During a Run
 
-## Completion
-
-When all stories have `passes: true`, Ralph outputs `<promise>COMPLETE</promise>` and the loop exits.
-
-## Notes & Troubleshooting
-
-### Execution Time
-
-Each Ralph iteration can take **30-120 seconds** or more, depending on:
-- Complexity of the task
-- Size of your codebase
-- Network latency to Kimi API
-- Number of tools Kimi needs to use
-
-This is normal - Kimi is reading files, analyzing code, making changes, running checks, and committing. Be patient!
-
-### Timeouts
-
-If you're running Ralph in an environment with timeout limits (like CI/CD), you may need to:
-- Increase timeout limits
-- Reduce the number of stories per PRD
-- Run Ralph locally instead
-
-### Checking Progress During Run
-
-Since each iteration takes time, you can check progress in another terminal:
+In another terminal, watch progress:
 
 ```powershell
 # Watch PRD status
-watch -n 5 "cat scripts/ralph/prd.json | ConvertFrom-Json | Select-Object -ExpandProperty userStories | Select-Object id, passes"
+while ($true) { clear; Get-Content scripts/ralph/prd.json | ConvertFrom-Json | Select-Object -ExpandProperty userStories | Select-Object id, passes; Start-Sleep -Seconds 10 }
 
 # Watch git log
-watch -n 5 "git log --oneline -5"
+while ($true) { clear; git log --oneline -5; Start-Sleep -Seconds 10 }
 
-# Watch progress
-watch -n 5 "cat scripts/ralph/progress.txt"
+# Watch progress file
+while ($true) { clear; Get-Content scripts/ralph/progress.txt; Start-Sleep -Seconds 10 }
 ```
 
-### Kimi CLI Configuration
+### After a Run
 
-Ralph uses Kimi's `--print` mode which:
-- Runs non-interactively (no user input needed)
-- Auto-approves all tool calls (equivalent to `--yolo`)
-- Outputs only the final message
+```powershell
+# See which stories are done
+cat scripts/ralph/prd.json | ConvertFrom-Json | Select-Object -ExpandProperty userStories | Select-Object id, title, passes
 
-Make sure Kimi CLI is properly authenticated before running Ralph:
+# See learnings
+cat scripts/ralph/progress.txt
+
+# See git history
+git log --oneline -10
+```
+
+---
+
+## Troubleshooting
+
+### Each Iteration Takes a Long Time
+
+**This is normal!** Each iteration takes 30-120+ seconds because Kimi is:
+- Reading and analyzing your codebase
+- Understanding the task from PRD
+- Implementing the solution
+- Running quality checks
+- Committing changes
+
+Ralph is designed for **autonomy**, not speed. Let it run - go get coffee! ☕
+
+### Kimi Not Found
+
+```powershell
+# Check if kimi is installed
+kimi --version
+
+# If not found, add to PATH or reinstall
+pip install kimi-cli
+```
+
+### Git Errors
+
+Make sure you're in a git repository:
 ```bash
-kimi login
+git status
+
+# If not initialized:
+git init
+git add .
+git commit -m "Initial commit"
 ```
 
-### Stopping Ralph
+### PRD Not Found
 
-To stop Ralph mid-run:
-- Press `Ctrl+C` in the terminal
-- Or close the terminal window
+Create one first:
+```
+/skill:prd
+```
 
-Ralph can be safely stopped at any time. When you restart, it will:
-- Pick up where it left off (based on `prd.json` status)
-- Archive previous run if branch changed
-- Continue with remaining stories
+Or manually create `scripts/ralph/prd.json` based on the example.
 
-## Archiving
+### Stories Not Being Marked Complete
 
-Ralph automatically archives previous runs when you start a new feature (different `branchName`). Archives are saved to `archive/YYYY-MM-DD-feature-name/`.
+Check that:
+1. Kimi is outputting the completion signal `<promise>COMPLETE</promise>`
+2. The `prd.json` file is being updated
+3. Git commits are being made
+
+Check `scripts/ralph/progress.txt` for errors.
+
+---
+
+## Architecture
+
+### File Purposes
+
+| File | Purpose |
+|------|---------|
+| `ralph.ps1` / `ralph.sh` | The orchestration loop that spawns fresh Kimi instances |
+| `KIMI.md` | The prompt template given to Kimi each iteration |
+| `prd.json` | The task list with completion status |
+| `progress.txt` | Append-only log of learnings for future iterations |
+| `skills/prd/SKILL.md` | Skill for generating PRDs interactively |
+| `skills/ralph/SKILL.md` | Skill for converting PRDs to JSON format |
+
+### Memory Model
+
+Ralph has no memory between iterations except:
+
+1. **Git commits** - Code changes persist
+2. **`prd.json`** - Task completion status
+3. **`progress.txt`** - Learnings and patterns discovered
+4. **AGENTS.md files** - Codebase documentation (updated by Kimi)
+
+This is intentional - each Kimi instance starts fresh with clean context.
+
+### Completion Detection
+
+When all stories have `passes: true`, Kimi outputs:
+```
+<promise>COMPLETE</promise>
+```
+
+The script detects this and exits successfully.
+
+---
+
+## Contributing
+
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+---
 
 ## License
 
-MIT - See LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
 
 ## Credits
 
 - Original Ralph pattern by [Geoffrey Huntley](https://ghuntley.com/ralph)
 - Original Ralph implementation for Amp/Claude by [Snarktank](https://github.com/snarktank/ralph)
-- Ported to Kimi Code CLI by contributors
+- Ported to Kimi Code CLI by [nicklynch10](https://github.com/nicklynch10)
+
+---
+
+## Related
+
+- [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) - The AI coding tool
+- [Original Ralph](https://github.com/snarktank/ralph) - For Amp and Claude Code
+- [Ralph Pattern](https://ghuntley.com/ralph) - The philosophy behind Ralph
