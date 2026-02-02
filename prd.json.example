@@ -2,6 +2,7 @@
   "project": "MyApp",
   "branchName": "ralph/task-priority",
   "description": "Task Priority System - Add priority levels to tasks",
+  "testDriven": true,
   "userStories": [
     {
       "id": "US-001",
@@ -10,11 +11,18 @@
       "acceptanceCriteria": [
         "Add priority column to tasks table: 'high' | 'medium' | 'low' (default 'medium')",
         "Generate and run migration successfully",
-        "Typecheck passes"
+        "Typecheck passes",
+        "Unit tests for priority validation pass"
       ],
       "priority": 1,
       "passes": false,
-      "notes": ""
+      "notes": "",
+      "testing": {
+        "testFirst": true,
+        "testTypes": ["unit", "migration"],
+        "browserTest": false,
+        "testFiles": ["tests/unit/database/priority-column.test.ts"]
+      }
     },
     {
       "id": "US-002",
@@ -24,11 +32,26 @@
         "Each task card shows colored priority badge (red=high, yellow=medium, gray=low)",
         "Priority visible without hovering or clicking",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Component tests pass",
+        "Screenshot verification in browser"
       ],
       "priority": 2,
       "passes": false,
-      "notes": ""
+      "notes": "",
+      "testing": {
+        "testFirst": true,
+        "testTypes": ["component", "e2e"],
+        "browserTest": true,
+        "browserTestType": "screenshot",
+        "testFiles": [
+          "tests/components/PriorityBadge.test.tsx",
+          "e2e/us-002-priority-badge.spec.ts"
+        ],
+        "selectors": {
+          "taskCard": "[data-testid='task-card']",
+          "priorityBadge": "[data-testid='priority-badge']"
+        }
+      }
     },
     {
       "id": "US-003",
@@ -39,11 +62,27 @@
         "Shows current priority as selected",
         "Saves immediately on selection change",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Component tests pass",
+        "Interaction test in browser"
       ],
       "priority": 3,
       "passes": false,
-      "notes": ""
+      "notes": "",
+      "testing": {
+        "testFirst": true,
+        "testTypes": ["component", "e2e"],
+        "browserTest": true,
+        "browserTestType": "interaction",
+        "testFiles": [
+          "tests/components/PrioritySelect.test.tsx",
+          "e2e/us-003-priority-selector.spec.ts"
+        ],
+        "selectors": {
+          "firstTask": "[data-testid='task-card']:first-child",
+          "prioritySelect": "[data-testid='priority-select']",
+          "saveButton": "[data-testid='save-button']"
+        }
+      }
     },
     {
       "id": "US-004",
@@ -54,11 +93,28 @@
         "Filter persists in URL params",
         "Empty state message when no tasks match filter",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Integration tests pass",
+        "E2E test passes",
+        "Interaction test in browser"
       ],
       "priority": 4,
       "passes": false,
-      "notes": ""
+      "notes": "",
+      "testing": {
+        "testFirst": true,
+        "testTypes": ["integration", "e2e"],
+        "browserTest": true,
+        "browserTestType": "interaction",
+        "testFiles": [
+          "tests/integration/priority-filter.test.ts",
+          "e2e/us-004-priority-filter.spec.ts"
+        ],
+        "batchWith": ["US-002", "US-003"],
+        "selectors": {
+          "filterDropdown": "[data-testid='priority-filter']",
+          "taskList": "[data-testid='task-list']"
+        }
+      }
     }
   ]
 }

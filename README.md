@@ -1,8 +1,8 @@
-# Ralph for Kimi Code CLI
+# Ralph for Kimi Code CLI - Test-Driven Edition
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Ralph is an autonomous AI agent loop that runs [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) repeatedly until all PRD (Product Requirements Document) items are complete. Each iteration is a fresh instance with clean context. Memory persists via git history, `progress.txt`, and `prd.json`.
+Ralph is an autonomous AI agent loop that runs [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) repeatedly until all PRD (Product Requirements Document) items are complete. **Now with built-in test-driven development and browser automation support.**
 
 This is a port of the original [Ralph](https://github.com/snarktank/ralph) project (built for Amp and Claude Code) to work with Kimi Code CLI.
 
@@ -10,45 +10,109 @@ Based on the [Ralph pattern](https://ghuntley.com/ralph) by Geoffrey Huntley.
 
 ---
 
+## What's New: Test-Driven Ralph
+
+This enhanced version includes:
+
+- **🧪 Test-First Development** - Generate tests from PRDs before implementation
+- **🎭 Playwright MCP Integration** - Automated browser testing for UI stories
+- **📊 Test Plan Management** - Track test coverage with `test-plan.json`
+- **🖼️ Screenshot Verification** - Visual proof of UI changes
+- **⚡ Context-Aware Testing** - Smart batching to manage context usage
+- **📈 Coverage Tracking** - Know what's tested and what's not
+
+---
+
 ## Table of Contents
 
 - [How It Works](#how-it-works)
+- [The Test-Driven Flow](#the-test-driven-flow)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-- [Detailed Setup](#detailed-setup)
-- [Usage](#usage)
-- [Creating PRDs](#creating-prds)
-- [Progress Tracking](#progress-tracking)
+- [Testing Strategy](#testing-strategy)
+- [Context Management](#context-management)
 - [Troubleshooting](#troubleshooting)
-- [Architecture](#architecture)
 
 ---
 
 ## How It Works
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Ralph Loop                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐              │
-│  │ Kimi CLI │───→│  Git     │───→│ prd.json │              │
-│  │  (New)   │    │ (Memory) │    │ (Status) │              │
-│  └──────────┘    └──────────┘    └──────────┘              │
-│       ↑                                          │          │
-│       └──────────┐    ┌──────────┐              │          │
-│                  │    │ progress │              ↓          │
-│                  └───→│  .txt    │←─────────────┘          │
-│                       │(Learnings)│                         │
-│                       └──────────┘                          │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Ralph Test-Driven Loop                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────┐    ┌─────────────┐    ┌──────────┐    ┌─────────────┐ │
+│  │  PRD    │───→│ Test Plan   │───→│  Tests   │───→│ Implementation│
+│  │ (JSON)  │    │  (JSON)     │    │(Generate)│    │             │
+│  └─────────┘    └─────────────┘    └──────────┘    └─────────────┘ │
+│       │                                                    │        │
+│       │    ┌──────────┐    ┌──────────┐    ┌──────────┐   │        │
+│       └───→│  Git     │←───│ Browser  │←───│  Verify  │←──┘        │
+│            │(Memory)  │    │  (MCP)   │    │  Tests   │            │
+│            └──────────┘    └──────────┘    └──────────┘            │
+│                                                                      │
+│  Memory: git history + prd.json + test-plan.json + progress.txt     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Each iteration spawns a new Kimi instance with clean context.** The only memory between iterations is:
-- **Git history** (commits from previous iterations)
-- **`progress.txt`** (learnings and context)
-- **`prd.json`** (which stories are done)
+### Key Differences from Original Ralph
+
+| Feature | Original Ralph | Test-Driven Ralph |
+|---------|---------------|-------------------|
+| Testing | Manual verification | Automated + Browser |
+| Test Generation | None | Generate from PRD |
+| Browser Testing | Optional skill | Integrated workflow |
+| Test Tracking | None | test-plan.json |
+| Context Management | N/A | Smart batching |
+
+---
+
+## The Test-Driven Flow
+
+### 1. PRD Creation (with Test Planning)
+
+```bash
+kimi
+/skill:prd
+```
+
+Creates PRD with testable acceptance criteria.
+
+### 2. Convert to Ralph Format
+
+```bash
+/skill:ralph
+```
+
+Creates `prd.json` with test metadata.
+
+### 3. Generate Test Suite
+
+```bash
+/skill:test-generation
+```
+
+Creates:
+- `test-plan.json` - Test coverage tracking
+- Unit/Integration/E2E test files
+- Browser test specifications
+- Data-testid attributes in components
+
+### 4. Run Ralph Loop
+
+```powershell
+.\scripts\ralph\ralph.ps1
+```
+
+Each iteration:
+1. **Pre-flight**: Run tests (they should fail - TDD)
+2. **Implement**: Code the story
+3. **Verify**: Run tests (they should pass)
+4. **Browser Test**: If UI story, verify with Playwright MCP
+5. **Commit**: Only if all tests pass
+6. **Document**: Update progress with test results
 
 ---
 
@@ -57,18 +121,16 @@ Based on the [Ralph pattern](https://ghuntley.com/ralph) by Geoffrey Huntley.
 - [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) installed and authenticated
 - Git repository for your project
 - PowerShell (Windows) or Bash (Linux/macOS)
+- **Playwright MCP** (optional but recommended for browser testing)
 
-### Installing Kimi Code CLI
+### Installing Playwright MCP
 
 ```bash
-# Using pip
-pip install kimi-cli
+# Add Playwright MCP to Kimi
+kimi mcp add --transport http playwright http://localhost:3000/mcp
 
-# Or using uv
-uv tool install kimi-cli
-
-# Authenticate
-kimi login
+# Or use the chrome-devtools MCP
+kimi mcp add --transport stdio chrome-devtools -- npx chrome-devtools-mcp@latest
 ```
 
 ---
@@ -81,196 +143,261 @@ kimi login
 # Create the ralph directory
 mkdir -p scripts/ralph
 
-# Download the files (PowerShell)
+# Download the files
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nicklynch10/ralph-kimi/main/ralph.ps1" -OutFile "scripts/ralph/ralph.ps1"
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nicklynch10/ralph-kimi/main/KIMI.md" -OutFile "scripts/ralph/KIMI.md"
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nicklynch10/ralph-kimi/main/prd.json.example" -OutFile "scripts/ralph/prd.json.example"
-
-# Or clone and copy
-git clone https://github.com/nicklynch10/ralph-kimi.git /tmp/ralph-kimi
-copy /tmp/ralph-kimi/ralph.ps1 scripts/ralph/
-copy /tmp/ralph-kimi/KIMI.md scripts/ralph/
-copy /tmp/ralph-kimi/prd.json.example scripts/ralph/
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nicklynch10/ralph-kimi/main/test-plan.json.example" -OutFile "scripts/ralph/test-plan.json.example"
 ```
 
-### 2. Install Skills (Optional but Recommended)
-
-Copy the skills to your Kimi config for use across all projects:
+### 2. Install Skills
 
 ```powershell
-# Windows - create skills directory if it doesn't exist
+# Create skills directory
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kimi\skills"
 
-# Copy skills
-Copy-Item -Recurse "scripts/ralph/skills/prd" "$env:USERPROFILE\.kimi\skills\"
-Copy-Item -Recurse "scripts/ralph/skills/ralph" "$env:USERPROFILE\.kimi\skills\"
+# Download skills
+# (Copy skills/prd, skills/ralph, skills/browser-testing, skills/test-generation)
 ```
 
-```bash
-# Linux/Mac
-mkdir -p ~/.kimi/skills
-cp -r scripts/ralph/skills/prd ~/.kimi/skills/
-cp -r scripts/ralph/skills/ralph ~/.kimi/skills/
-```
-
-### 3. Create Your First PRD
-
-Start Kimi and use the PRD skill:
+### 3. Create PRD with Test Planning
 
 ```bash
 kimi
-```
-
-Then type:
-```
 /skill:prd
 ```
 
-Answer the questions to generate a PRD. It will be saved to `tasks/prd-[feature-name].md`.
+The PRD skill now includes test planning in the acceptance criteria.
 
-### 4. Convert to Ralph Format
+### 4. Generate Tests
 
+```bash
+/skill:test-generation
 ```
-/skill:ralph
-```
 
-This converts your markdown PRD to `scripts/ralph/prd.json`.
+This creates your test suite and `test-plan.json`.
 
 ### 5. Run Ralph
 
 ```powershell
-# Windows PowerShell
 .\scripts\ralph\ralph.ps1
-
-# Or specify iterations
-.\scripts\ralph\ralph.ps1 20
 ```
 
-```bash
-# Linux/Mac
-./scripts/ralph/ralph.sh
+Watch as it:
+- Runs tests first (TDD)
+- Implements stories
+- Verifies with browser automation
+- Commits only when all tests pass
 
-# Or specify iterations
-./scripts/ralph/ralph.sh 20
+---
+
+## Testing Strategy
+
+### Three Levels of Testing
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    Testing Pyramid                         │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│     🎭 E2E / Browser Tests (Few, Expensive)               │
+│         - Full user flows                                 │
+│         - Playwright MCP                                  │
+│         - ~30-60s per test                                │
+│                      ▲                                     │
+│     🔗 Integration Tests (Some)                           │
+│         - API + Database                                  │
+│         - Component + Backend                             │
+│         - ~5-10s per test                                 │
+│                      ▲                                     │
+│     ⚡ Unit Tests (Many, Fast)                            │
+│         - Pure functions                                  │
+│         - Business logic                                  │
+│         - ~10-100ms per test                              │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+### Test Types by Story
+
+| Story Type | Unit | Integration | E2E | Browser | Context Cost |
+|------------|------|-------------|-----|---------|--------------|
+| Database/Schema | ✅ | ✅ | ❌ | ❌ | Low |
+| API Endpoint | ✅ | ✅ | ❌ | ❌ | Low |
+| UI Component | ✅ | ❌ | ✅ | Screenshot | Medium |
+| Form/Input | ✅ | ✅ | ✅ | Interaction | High |
+| Full Feature | ✅ | ✅ | ✅ | Full E2E | Very High |
+
+### Browser Testing Intensity
+
+Choose the right level to manage context:
+
+#### 🖼️ Screenshot Only (Fast, ~10% context)
+```yaml
+Use for: Visual verification, simple UI additions
+Steps:
+  - Navigate to page
+  - Take screenshot
+  - Verify element visible
+Time: ~10-15 seconds
+```
+
+#### 🖱️ Interaction Test (Medium, ~25% context)
+```yaml
+Use for: Forms, buttons, user interactions
+Steps:
+  - Navigate to page
+  - Take "before" screenshot
+  - Click/type/interact
+  - Take "after" screenshot
+  - Verify change
+Time: ~20-30 seconds
+```
+
+#### 🎬 Full E2E Flow (Comprehensive, ~50% context)
+```yaml
+Use for: Complete user journeys
+Steps:
+  - Navigate to entry
+  - Progress through flow
+  - Multiple interactions
+  - Screenshots at key points
+  - Verify final state
+Time: ~40-60 seconds
 ```
 
 ---
 
-## Detailed Setup
+## Context Management
 
-### Project Structure After Setup
+**Browser testing is powerful but context-expensive.** Here's how to use it effectively:
+
+### Strategy 1: Test Batching
+
+Instead of testing each story separately, batch related UI stories:
 
 ```
-your-project/
-├── scripts/
-│   └── ralph/
-│       ├── ralph.ps1          # Main script (Windows)
-│       ├── ralph.sh           # Main script (Linux/Mac)
-│       ├── KIMI.md            # Prompt template
-│       ├── prd.json           # Your tasks (generated)
-│       ├── prd.json.example   # Example format
-│       ├── progress.txt       # Learnings log (generated)
-│       └── archive/           # Old runs (auto-created)
+❌ Expensive (separate browser tests):
+   Story 1: Add button → Browser test → Commit
+   Story 2: Add form → Browser test → Commit
+   Story 3: Connect → Browser test → Commit
+
+✅ Efficient (batched browser test):
+   Story 1: Add button → Implement
+   Story 2: Add form → Implement
+   Story 3: Connect → Implement
+   → Batch browser test all three → Commit
+```
+
+Configure in `test-plan.json`:
+```json
+{
+  "batchTests": [{
+    "stories": ["US-002", "US-003", "US-004"],
+    "reason": "Related UI features"
+  }]
+}
+```
+
+### Strategy 2: Context Threshold
+
+When context runs high, adjust testing:
+
+```
+Context < 50%: Full browser testing
+Context 50-70%: Screenshot only
+Context > 70%: Skip browser, rely on automated tests
+```
+
+Ralph monitors context and adjusts automatically.
+
+### Strategy 3: Selective Browser Testing
+
+Not every UI change needs a browser test:
+
+| Change Type | Browser Test | Why |
+|-------------|--------------|-----|
+| Color change | ❌ Skip | CSS only, trust the code |
+| Font size | ❌ Skip | Visual but low risk |
+| New button | 🖼️ Screenshot | Verify visibility |
+| New form | 🖱️ Interaction | Verify functionality |
+| New workflow | 🎬 Full E2E | Verify complete flow |
+
+### Strategy 4: Screenshot as Proof
+
+When you do browser test, always screenshot:
+
+```
+1. Navigate to page
+2. Take screenshot: tests/screenshots/US-XXX-start.png
+3. [Interact if needed]
+4. Take screenshot: tests/screenshots/US-XXX-end.png
+5. Document in progress.txt
+```
+
+Screenshots serve as:
+- Proof of verification
+- Documentation for future developers
+- Regression test baseline (if using visual regression)
+
+---
+
+## File Structure
+
+```
+scripts/ralph/
+├── ralph.ps1              # Main orchestration script
+├── ralph.sh               # Linux/Mac version
+├── KIMI.md                # Agent instructions (test-driven)
+├── prd.json               # Your stories (generated)
+├── test-plan.json         # Test coverage tracking (generated)
+├── progress.txt           # Learnings log
+└── archive/               # Old runs
+
+Your Project/
+├── tests/
+│   ├── unit/              # Unit tests (generated)
+│   ├── integration/       # Integration tests (generated)
+│   ├── components/        # Component tests (generated)
+│   └── screenshots/       # Browser test evidence
+├── e2e/
+│   └── *.spec.ts          # Playwright tests (generated)
 ├── tasks/
-│   └── prd-your-feature.md    # Your PRD
-├── src/                       # Your code
-└── ...
-```
-
-### Customizing KIMI.md
-
-Edit `scripts/ralph/KIMI.md` to add:
-
-- **Project-specific quality checks** (e.g., `npm run typecheck`, `pytest`)
-- **Code conventions** specific to your stack
-- **Common gotchas** in your codebase
-
-Example additions:
-```markdown
-## Project-Specific Commands
-
-Run these quality checks before committing:
-- `npm run typecheck` - TypeScript type checking
-- `npm run lint` - ESLint
-- `npm run test:unit` - Unit tests
-
-## Code Conventions
-
-- Use TypeScript strict mode
-- Prefer functional components
-- Use `async/await` over callbacks
+│   └── prd-*.md           # PRD documents
+└── src/
+    └── components/        # Components with data-testid
 ```
 
 ---
 
-## Usage
+## Test Plan Format
 
-### Running Ralph
-
-```powershell
-# Default: 10 iterations
-.\scripts\ralph\ralph.ps1
-
-# Custom iterations
-.\scripts\ralph\ralph.ps1 5
-
-# Unlimited (be careful!)
-.\scripts\ralph\ralph.ps1 100
-```
-
-### What Ralph Does Each Iteration
-
-1. **Reads** `prd.json` and `progress.txt`
-2. **Picks** the highest priority incomplete story
-3. **Implements** that single story
-4. **Runs** quality checks
-5. **Commits** changes with message: `feat: [Story ID] - [Story Title]`
-6. **Updates** `prd.json` to mark story complete
-7. **Appends** learnings to `progress.txt`
-8. **Repeats** until all stories done or max iterations reached
-
-### Stopping Ralph
-
-- Press `Ctrl+C` to stop gracefully
-- Ralph can be restarted and will pick up where it left off
-
----
-
-## Creating PRDs
-
-### Good Story Size
-
-**✅ Right-sized stories (completable in one iteration):**
-- Add a database column and migration
-- Add a UI component to an existing page
-- Update a server action with new logic
-- Add a filter dropdown to a list
-
-**❌ Too big (split these):**
-- "Build the entire dashboard"
-- "Add authentication"
-- "Refactor the API"
-
-### PRD JSON Format
+The `test-plan.json` tracks test coverage:
 
 ```json
 {
   "project": "MyApp",
-  "branchName": "ralph/feature-name",
-  "description": "Feature description",
-  "userStories": [
+  "stories": [
     {
-      "id": "US-001",
-      "title": "Story title",
-      "description": "As a user, I want...",
-      "acceptanceCriteria": [
-        "Specific criterion 1",
-        "Specific criterion 2",
-        "Typecheck passes"
+      "storyId": "US-002",
+      "title": "Display priority badge",
+      "testTypes": ["component", "e2e"],
+      "testFiles": [
+        "tests/components/PriorityBadge.test.tsx",
+        "e2e/us-002-priority-badge.spec.ts"
       ],
-      "priority": 1,
-      "passes": false,
-      "notes": ""
+      "browserTest": {
+        "required": true,
+        "type": "screenshot",
+        "selectors": {
+          "badge": "[data-testid='priority-badge']"
+        }
+      },
+      "status": "pending",
+      "coverage": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
     }
   ]
 }
@@ -278,154 +405,180 @@ Run these quality checks before committing:
 
 ---
 
-## Progress Tracking
+## Example Workflow
 
-### During a Run
+### Story: Add Priority Badge to Tasks
 
-In another terminal, watch progress:
-
-```powershell
-# Watch PRD status
-while ($true) { clear; Get-Content scripts/ralph/prd.json | ConvertFrom-Json | Select-Object -ExpandProperty userStories | Select-Object id, passes; Start-Sleep -Seconds 10 }
-
-# Watch git log
-while ($true) { clear; git log --oneline -5; Start-Sleep -Seconds 10 }
-
-# Watch progress file
-while ($true) { clear; Get-Content scripts/ralph/progress.txt; Start-Sleep -Seconds 10 }
+**1. PRD Created:**
+```json
+{
+  "id": "US-002",
+  "acceptanceCriteria": [
+    "Badge shows colored priority (red/yellow/gray)",
+    "Typecheck passes",
+    "Component tests pass",
+    "Screenshot verification in browser"
+  ]
+}
 ```
 
-### After a Run
+**2. Tests Generated:**
+```typescript
+// tests/components/PriorityBadge.test.tsx
+describe('PriorityBadge', () => {
+  it.each([
+    ['high', 'bg-red-500'],
+    ['medium', 'bg-yellow-500'],
+    ['low', 'bg-gray-500'],
+  ])('renders %s priority correctly', (priority, expectedClass) => {
+    render(<PriorityBadge priority={priority} />);
+    expect(screen.getByTestId('priority-badge')).toHaveClass(expectedClass);
+  });
+});
+```
 
-```powershell
-# See which stories are done
-cat scripts/ralph/prd.json | ConvertFrom-Json | Select-Object -ExpandProperty userStories | Select-Object id, title, passes
+**3. Ralph Iteration:**
+```
+[Iteration 1]
+- Run tests: FAIL (TDD - expected)
+- Implement PriorityBadge component
+- Add data-testid="priority-badge"
+- Run tests: PASS
+- Browser test (screenshot):
+  - Navigate to /tasks
+  - Screenshot: tests/screenshots/US-002.png
+  - Verify badge visible
+- Commit: "feat: US-002 - Display priority badge"
+- Update prd.json: passes: true
+```
 
-# See learnings
-cat scripts/ralph/progress.txt
+**4. Progress Logged:**
+```markdown
+## 2025-02-02 14:30 - US-002
+- Implemented PriorityBadge component with color variants
+- Files: components/PriorityBadge.tsx, components/PriorityBadge.test.tsx
 
-# See git history
-git log --oneline -10
+### Testing
+**Automated:**
+- Component tests: PASS (3 variants tested)
+- Pre-implementation: FAIL (TDD)
+- Post-implementation: PASS
+
+**Browser:**
+- Type: Screenshot
+- Result: PASS
+- Screenshot: tests/screenshots/US-002.png
+- Badge visible on all task cards
+
+### Learnings
+- Use data-testid for reliable selectors
+- Color classes: bg-red-500, bg-yellow-500, bg-gray-500
+---
 ```
 
 ---
 
 ## Troubleshooting
 
-### Each Iteration Takes a Long Time
+### Browser Tests Too Slow
 
-**This is normal!** Each iteration takes 30-120+ seconds because Kimi is:
-- Reading and analyzing your codebase
-- Understanding the task from PRD
-- Implementing the solution
-- Running quality checks
-- Committing changes
+**Problem:** Each iteration takes too long with browser testing.
 
-Ralph is designed for **autonomy**, not speed. Let it run - go get coffee! ☕
+**Solutions:**
+1. Batch related UI stories
+2. Use screenshot instead of interaction for simple changes
+3. Skip browser tests for pure backend stories
+4. Increase `contextThreshold` in test-plan.json
 
-### Kimi Not Found
+### Context Running Out
 
-```powershell
-# Check if kimi is installed
-kimi --version
+**Problem:** Kimi runs out of context during browser testing.
 
-# If not found, add to PATH or reinstall
-pip install kimi-cli
-```
+**Solutions:**
+1. Ralph will auto-adjust to screenshot-only mode
+2. Use `/compact` to summarize context mid-run
+3. Reduce batch size
+4. Run fewer iterations
 
-### Git Errors
+### Tests Failing After Implementation
 
-Make sure you're in a git repository:
-```bash
-git status
+**Problem:** Tests fail even after implementing the story.
 
-# If not initialized:
-git init
-git add .
-git commit -m "Initial commit"
-```
+**Check:**
+1. Are selectors correct? (use data-testid)
+2. Is dev server running?
+3. Are there async timing issues? (add waits)
+4. Did implementation match test expectations?
 
-### PRD Not Found
+### Playwright MCP Not Available
 
-Create one first:
-```
-/skill:prd
-```
+**Problem:** Browser MCP tools not found.
 
-Or manually create `scripts/ralph/prd.json` based on the example.
-
-### Stories Not Being Marked Complete
-
-Check that:
-1. Kimi is outputting the completion signal `<promise>COMPLETE</promise>`
-2. The `prd.json` file is being updated
-3. Git commits are being made
-
-Check `scripts/ralph/progress.txt` for errors.
+**Solutions:**
+1. Skip browser tests for this run
+2. Add MCP server: `kimi mcp add ...`
+3. Use manual testing (document in progress.txt)
 
 ---
 
-## Architecture
+## Advanced Configuration
 
-### File Purposes
+### Custom Test Commands
 
-| File | Purpose |
-|------|---------|
-| `ralph.ps1` / `ralph.sh` | The orchestration loop that spawns fresh Kimi instances |
-| `KIMI.md` | The prompt template given to Kimi each iteration |
-| `prd.json` | The task list with completion status |
-| `progress.txt` | Append-only log of learnings for future iterations |
-| `skills/prd/SKILL.md` | Skill for generating PRDs interactively |
-| `skills/ralph/SKILL.md` | Skill for converting PRDs to JSON format |
-
-### Memory Model
-
-Ralph has no memory between iterations except:
-
-1. **Git commits** - Code changes persist
-2. **`prd.json`** - Task completion status
-3. **`progress.txt`** - Learnings and patterns discovered
-4. **AGENTS.md files** - Codebase documentation (updated by Kimi)
-
-This is intentional - each Kimi instance starts fresh with clean context.
-
-### Completion Detection
-
-When all stories have `passes: true`, Kimi outputs:
-```
-<promise>COMPLETE</promise>
+Update `test-plan.json`:
+```json
+{
+  "commands": {
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test --project=chromium",
+    "test:visual": "playwright test --grep visual"
+  }
+}
 ```
 
-The script detects this and exits successfully.
+### Visual Regression Testing
+
+Enable in Playwright:
+```typescript
+// playwright.config.ts
+export default {
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixels: 100,
+    },
+  },
+};
+```
+
+Then in tests:
+```typescript
+test('visual regression', async ({ page }) => {
+  await page.goto('/tasks');
+  await expect(page).toHaveScreenshot('tasks-page.png');
+});
+```
 
 ---
 
 ## Contributing
 
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+Contributions welcome! Areas for improvement:
 
----
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
+- Additional testing strategies
+- MCP server integrations
+- CI/CD workflow templates
+- Language/framework support
 
 ---
 
 ## Credits
 
 - Original Ralph pattern by [Geoffrey Huntley](https://ghuntley.com/ralph)
-- Original Ralph implementation for Amp/Claude by [Snarktank](https://github.com/snarktank/ralph)
-- Ported to Kimi Code CLI by [nicklynch10](https://github.com/nicklynch10)
+- Original Ralph implementation by [Snarktank](https://github.com/snarktank/ralph)
+- Test-driven enhancements by [nicklynch10](https://github.com/nicklynch10)
 
 ---
 
-## Related
+## License
 
-- [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) - The AI coding tool
-- [Original Ralph](https://github.com/snarktank/ralph) - For Amp and Claude Code
-- [Ralph Pattern](https://ghuntley.com/ralph) - The philosophy behind Ralph
+MIT License - see LICENSE file.

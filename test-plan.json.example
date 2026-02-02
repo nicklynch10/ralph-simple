@@ -1,0 +1,196 @@
+{
+  "project": "MyApp",
+  "version": "1.0.0",
+  "generatedAt": "2025-02-02T12:00:00Z",
+  "testStrategy": {
+    "approach": "test-first",
+    "browserTesting": "selective",
+    "batchingEnabled": true,
+    "contextThreshold": 70
+  },
+  "testSuites": {
+    "unit": {
+      "command": "npm test -- --testPathPattern=unit",
+      "pattern": "**/*.test.ts"
+    },
+    "integration": {
+      "command": "npm test -- --testPathPattern=integration",
+      "pattern": "**/*.integration.test.ts"
+    },
+    "e2e": {
+      "command": "npx playwright test",
+      "pattern": "e2e/**/*.spec.ts"
+    },
+    "component": {
+      "command": "npm test -- --testPathPattern=components",
+      "pattern": "components/**/*.test.tsx"
+    }
+  },
+  "stories": [
+    {
+      "storyId": "US-001",
+      "title": "Add priority field to database",
+      "testTypes": ["unit", "migration"],
+      "testFiles": [
+        {
+          "type": "unit",
+          "path": "tests/unit/database/priority-column.test.ts",
+          "description": "Test priority column schema validation"
+        },
+        {
+          "type": "migration",
+          "path": "tests/migrations/add-priority-column.test.ts",
+          "description": "Test migration applies correctly"
+        }
+      ],
+      "browserTest": {
+        "required": false,
+        "reason": "Backend only - no UI changes"
+      },
+      "status": "pending",
+      "coverage": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "storyId": "US-002",
+      "title": "Display priority indicator on task cards",
+      "testTypes": ["component", "e2e", "visual"],
+      "testFiles": [
+        {
+          "type": "component",
+          "path": "tests/components/PriorityBadge.test.tsx",
+          "description": "Test badge renders with correct colors"
+        },
+        {
+          "type": "e2e",
+          "path": "e2e/us-002-priority-badge.spec.ts",
+          "description": "Test badge visible on task cards"
+        }
+      ],
+      "browserTest": {
+        "required": true,
+        "type": "screenshot",
+        "steps": [
+          "Navigate to /tasks",
+          "Verify badge visible on task cards",
+          "Screenshot for documentation"
+        ],
+        "selectors": {
+          "taskCard": "[data-testid='task-card']",
+          "priorityBadge": "[data-testid='priority-badge']"
+        }
+      },
+      "status": "pending",
+      "coverage": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "storyId": "US-003",
+      "title": "Add priority selector to task edit",
+      "testTypes": ["component", "e2e", "interaction"],
+      "testFiles": [
+        {
+          "type": "component",
+          "path": "tests/components/PrioritySelect.test.tsx",
+          "description": "Test select component functionality"
+        },
+        {
+          "type": "e2e",
+          "path": "e2e/us-003-priority-selector.spec.ts",
+          "description": "Test changing priority in edit modal"
+        }
+      ],
+      "browserTest": {
+        "required": true,
+        "type": "interaction",
+        "steps": [
+          "Navigate to /tasks",
+          "Click first task to open edit modal",
+          "Select 'high' from priority dropdown",
+          "Click save",
+          "Verify badge changes to red"
+        ],
+        "selectors": {
+          "firstTask": "[data-testid='task-card']:first-child",
+          "prioritySelect": "[data-testid='priority-select']",
+          "saveButton": "[data-testid='save-button']"
+        }
+      },
+      "status": "pending",
+      "coverage": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    {
+      "storyId": "US-004",
+      "title": "Filter tasks by priority",
+      "testTypes": ["integration", "e2e", "interaction"],
+      "testFiles": [
+        {
+          "type": "integration",
+          "path": "tests/integration/priority-filter.test.ts",
+          "description": "Test filter logic with database"
+        },
+        {
+          "type": "e2e",
+          "path": "e2e/us-004-priority-filter.spec.ts",
+          "description": "Test filter UI interaction"
+        }
+      ],
+      "browserTest": {
+        "required": true,
+        "type": "interaction",
+        "steps": [
+          "Navigate to /tasks",
+          "Note current task count",
+          "Select 'high' from filter dropdown",
+          "Verify filtered task count",
+          "Verify URL contains priority=high"
+        ],
+        "batchWith": ["US-002", "US-003"],
+        "selectors": {
+          "filterDropdown": "[data-testid='priority-filter']",
+          "taskList": "[data-testid='task-list']"
+        }
+      },
+      "status": "pending",
+      "coverage": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
+    }
+  ],
+  "batchTests": [
+    {
+      "batchId": "batch-1",
+      "name": "Priority UI Features",
+      "stories": ["US-002", "US-003", "US-004"],
+      "browserTestType": "full-e2e",
+      "reason": "Related UI features - batch for efficiency"
+    }
+  ],
+  "commands": {
+    "test:unit": "npm test -- --testPathPattern=unit",
+    "test:integration": "npm test -- --testPathPattern=integration",
+    "test:e2e": "npx playwright test",
+    "test:component": "npm test -- --testPathPattern=components",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:component && npm run test:e2e",
+    "test:story": "npm test -- --testNamePattern="
+  },
+  "mcp": {
+    "browser": {
+      "enabled": true,
+      "server": "playwright",
+      "baseUrl": "http://localhost:3000"
+    }
+  }
+}

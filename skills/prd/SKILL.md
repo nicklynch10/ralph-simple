@@ -4,9 +4,9 @@ description: "Generate a Product Requirements Document (PRD) for a new feature. 
 user-invocable: true
 ---
 
-# PRD Generator
+# PRD Generator (Test-Driven)
 
-Create detailed Product Requirements Documents that are clear, actionable, and suitable for implementation.
+Create detailed Product Requirements Documents with test planning built-in. Each PRD includes acceptance criteria that drive both automated tests and browser verification.
 
 ---
 
@@ -137,6 +137,46 @@ The PRD reader may be a junior developer or AI agent. Therefore:
 - **Format:** Markdown (`.md`)
 - **Location:** `tasks/`
 - **Filename:** `prd-[feature-name].md` (kebab-case)
+
+---
+
+## Test-Driven Approach
+
+Every PRD should include testable acceptance criteria. For each story:
+
+### Automated Test Criteria
+
+Include specific test commands in acceptance criteria:
+
+```markdown
+**Acceptance Criteria:**
+- [ ] Unit tests for [function] pass: `npm test -- [pattern]`
+- [ ] Integration tests pass: `npm run test:integration`
+- [ ] E2E tests pass: `npx playwright test [file]`
+- [ ] Typecheck passes
+```
+
+### Browser Test Criteria (UI Stories)
+
+For UI changes, specify what needs browser verification:
+
+```markdown
+**Acceptance Criteria:**
+- [ ] Component renders correctly (screenshot)
+- [ ] User interaction works (click, type, etc.)
+- [ ] Visual regression test passes
+```
+
+### Test Data Requirements
+
+Specify test data needed:
+
+```markdown
+**Test Data:**
+- 3 tasks with different priorities
+- 1 task with no priority (default test)
+- User with admin permissions
+```
 
 ---
 
