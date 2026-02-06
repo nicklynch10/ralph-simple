@@ -88,20 +88,19 @@ $script:Config = @{
     Returns the full path to the executable.
 #>
 function Get-PowerShellPath {
-    $isWindows = $IsWindows -or ($env:OS -eq "Windows_NT")
+    # Use different variable name to avoid conflict with automatic $IsWindows
+    $onWindows = $IsWindows -or ($env:OS -eq "Windows_NT")
     
-    if ($isWindows) {
+    if ($onWindows) {
         # Windows: Try pwsh.exe (PS 7+) first
         $pwsh7 = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
         if ($pwsh7) {
-            Write-DaemonLog "Using PowerShell 7: $($pwsh7.Source)" -Level "DEBUG"
             return $pwsh7.Source
         }
         
         # Fallback to Windows PowerShell 5.1
         $ps5 = Get-Command "powershell.exe" -ErrorAction SilentlyContinue
         if ($ps5) {
-            Write-DaemonLog "WARNING: Using PowerShell 5.1 - some features may be limited" -Level "WARN"
             return $ps5.Source
         }
     }
@@ -109,14 +108,12 @@ function Get-PowerShellPath {
         # Linux/Mac: Try pwsh first
         $pwsh = Get-Command "pwsh" -ErrorAction SilentlyContinue
         if ($pwsh) {
-            Write-DaemonLog "Using PowerShell 7: $($pwsh.Source)" -Level "DEBUG"
             return $pwsh.Source
         }
         
         # Fallback to system powershell
         $ps = Get-Command "powershell" -ErrorAction SilentlyContinue
         if ($ps) {
-            Write-DaemonLog "WARNING: Using system PowerShell - some features may be limited" -Level "WARN"
             return $ps.Source
         }
     }
@@ -288,27 +285,41 @@ function Initialize-BeadSchema {
         }
     }
     
-    # Ensure ralph_meta exists
+    # Ensure ralph_meta exists as PSCustomObject with all fields pre-defined
     if (-not $Bead.ralph_meta) {
-        $Bead | Add-Member -NotePropertyName "ralph_meta" -NotePropertyValue @{} -Force
-    }
-    
-    # Meta fields with defaults
-    $metaFields = @{
-        "attempt_count" = 0
-        "timeout_count" = 0
-        "stuck_count" = 0
-        "last_attempt" = $null
-        "last_error" = $null
-        "status_detail" = $null
-        "last_updated" = (Get-Date -Format "o")
-        "created_by" = "ralph-daemon"
-    }
-    
-    # Ensure meta fields exist
-    foreach ($field in $metaFields.Keys) {
-        if (-not ($Bead.ralph_meta.PSObject.Properties.Name -contains $field)) {
-            $Bead.ralph_meta | Add-Member -NotePropertyName $field -NotePropertyValue $metaFields[$field] -Force
+        $Bead | Add-Member -NotePropertyName "ralph_meta" -NotePropertyValue ([PSCustomObject]@{
+            attempt_count = 0
+            timeout_count = 0
+            stuck_count = 0
+            last_attempt = $null
+            last_error = $null
+            status_detail = $null
+            last_updated = (Get-Date -Format "o")
+            created_by = "ralph-daemon"
+        }) -Force
+    } else {
+        # ralph_meta exists but may be missing fields (e.g., if it was a hashtable)
+        # Convert to PSCustomObject if needed and ensure all fields exist
+        if ($Bead.ralph_meta -is [System.Collections.Hashtable]) {
+            $Bead.ralph_meta = [PSCustomObject]$Bead.ralph_meta
+        }
+        
+        # Ensure all required fields exist
+        $requiredMetaFields = @{
+            "attempt_count" = 0
+            "timeout_count" = 0
+            "stuck_count" = 0
+            "last_attempt" = $null
+            "last_error" = $null
+            "status_detail" = $null
+            "last_updated" = (Get-Date -Format "o")
+            "created_by" = "ralph-daemon"
+        }
+        
+        foreach ($field in $requiredMetaFields.Keys) {
+            if (-not ($Bead.ralph_meta.PSObject.Properties.Name -contains $field)) {
+                $Bead.ralph_meta | Add-Member -NotePropertyName $field -NotePropertyValue $requiredMetaFields[$field] -Force
+            }
         }
     }
     
@@ -590,15 +601,32 @@ function Invoke-Bead {
     # Update status to in_progress
     $Bead.status = "in_progress"
     
-    # Ensure ralph_meta exists
+    # Ensure ralph_meta exists as PSCustomObject with all required fields
     if (-not $Bead.ralph_meta) {
-        $Bead | Add-Member -NotePropertyName "ralph_meta" -NotePropertyValue @{} -Force
+        $Bead | Add-Member -NotePropertyName "ralph_meta" -NotePropertyValue ([PSCustomObject]@{
+            attempt_count = 0
+            timeout_count = 0
+            stuck_count = 0
+            last_attempt = $null
+            last_error = $null
+            status_detail = $null
+            last_updated = (Get-Date -Format "o")
+            created_by = "ralph-daemon"
+        }) -Force
+    }
+    
+    # Ensure all required fields exist (handles case where ralph_meta exists but is missing fields)
+    $requiredFields = @('attempt_count', 'timeout_count', 'stuck_count', 'last_attempt', 'last_error', 'status_detail')
+    foreach ($field in $requiredFields) {
+        if (-not ($Bead.ralph_meta.PSObject.Properties.Name -contains $field)) {
+            $Bead.ralph_meta | Add-Member -NotePropertyName $field -NotePropertyValue $null -Force
+        }
     }
     
     $Bead.ralph_meta.last_attempt = Get-Date -Format "o"
     
-    # Ensure attempt_count exists
-    if (-not $Bead.ralph_meta.attempt_count) {
+    # Ensure attempt_count exists and increment
+    if ($null -eq $Bead.ralph_meta.attempt_count) {
         $Bead.ralph_meta.attempt_count = 0
     }
     $Bead.ralph_meta.attempt_count++

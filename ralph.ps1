@@ -498,10 +498,10 @@ function Invoke-DoctorCommand {
     Write-Action "Checking daemon status..."
     $pidFile = Join-Path $ralphDir "daemon.pid"
     if (Test-Path $pidFile) {
-        $pid = Get-Content $pidFile -Raw
-        $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+        $daemonPid = Get-Content $pidFile -Raw
+        $process = Get-Process -Id $daemonPid -ErrorAction SilentlyContinue
         if ($process) {
-            Write-Success "Daemon running (PID: $pid)"
+            Write-Success "Daemon running (PID: $daemonPid)"
         }
         else {
             Write-Warning "Daemon PID file exists but process not running"
@@ -682,8 +682,8 @@ function Invoke-DaemonCommand {
             Write-Info "Stopping Ralph daemon..."
             $pidFile = Join-Path (Get-Location) ".ralph\daemon.pid"
             if (Test-Path $pidFile) {
-                $pid = Get-Content $pidFile -Raw
-                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+                $daemonPid = Get-Content $pidFile -Raw
+                Stop-Process -Id $daemonPid -Force -ErrorAction SilentlyContinue
                 Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
                 Write-Success "Daemon stopped"
             }
@@ -694,10 +694,10 @@ function Invoke-DaemonCommand {
         "status" {
             $pidFile = Join-Path (Get-Location) ".ralph\daemon.pid"
             if (Test-Path $pidFile) {
-                $pid = Get-Content $pidFile -Raw
-                $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+                $daemonPid = Get-Content $pidFile -Raw
+                $process = Get-Process -Id $daemonPid -ErrorAction SilentlyContinue
                 if ($process) {
-                    Write-Success "Daemon running (PID: $pid)"
+                    Write-Success "Daemon running (PID: $daemonPid)"
                 }
                 else {
                     Write-Warning "Daemon PID file exists but process not running"
@@ -793,10 +793,10 @@ function Invoke-StatusCommand {
     Write-Host ""
     $pidFile = Join-Path $ralphDir "daemon.pid"
     if (Test-Path $pidFile) {
-        $pid = Get-Content $pidFile -Raw
-        $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+        $daemonPid = Get-Content $pidFile -Raw
+        $process = Get-Process -Id $daemonPid -ErrorAction SilentlyContinue
         if ($process) {
-            Write-Success "Daemon running (PID: $pid)"
+            Write-Success "Daemon running (PID: $daemonPid)"
         }
     }
 }
