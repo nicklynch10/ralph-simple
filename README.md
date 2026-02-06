@@ -11,69 +11,178 @@ Based on the [Ralph pattern](https://ghuntley.com/ralph) by Geoffrey Huntley.
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Quick Start (3 Steps)
 
-### Prerequisites
-
-| Requirement | Version | Install Command |
-|-------------|---------|-----------------|
-| **PowerShell** | 7.0+ | `winget install Microsoft.PowerShell` |
-| **Kimi CLI** | Latest | `pip install kimi-cli` |
-| **Git** | 2.0+ | `winget install Git.Git` |
-
-### Installation
+### 1. Install Prerequisites
 
 ```powershell
-# Clone the repository
+# PowerShell 7 (required)
+winget install Microsoft.PowerShell
+
+# Kimi CLI
+pip install kimi-cli
+kimi config set api_key <your-key>
+
+# Git
+winget install Git.Git
+```
+
+### 2. Initialize Workspace
+
+```powershell
+# Clone Ralph
 git clone https://github.com/nicklynch10/ralph-simple.git
-cd ralph-simple
 
 # Copy to your project
-copy *.ps1 C:\path\to\your\project\
-copy KIMI.md C:\path\to\your\project\
+copy ralph-simple\*.ps1 C:\path\to\your\project\
+
+# Initialize
+cd C:\path\to\your\project
+.\ralph.ps1 init
 ```
 
-### Create Your PRD
-
-Create a `prd.json` file in your project:
-
-```json
-{
-  "project": "MyApp",
-  "branchName": "ralph/feature-name",
-  "description": "Feature description",
-  "userStories": [
-    {
-      "id": "US-001",
-      "title": "Add user authentication",
-      "description": "As a user, I want to log in...",
-      "acceptanceCriteria": [
-        "Login form validates email format",
-        "Password must be 8+ characters",
-        "Typecheck passes",
-        "Tests pass"
-      ],
-      "priority": 1,
-      "passes": false
-    }
-  ]
-}
-```
-
-### Run Ralph
+### 3. Run Ralph
 
 ```powershell
-# Interactive mode (10 iterations)
-.\ralph.ps1
+# Check everything is ready
+.\ralph.ps1 doctor
 
-# Run 20 iterations
-.\ralph.ps1 20
+# Run interactively
+.\ralph.ps1 run
 
+# Or start 24/7 daemon
+.\ralph.ps1 daemon start
+```
+
+---
+
+## 📖 Command Reference
+
+### Core Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `init` | Initialize workspace | `ralph init [--template node-react]` |
+| `doctor` | Check/fix issues | `ralph doctor [--fix]` |
+| `bead` | Create task bead | `ralph bead "Add login" [--verifier "npm test"]` |
+| `run` | Run main loop | `ralph run [iterations]` |
+| `daemon` | Manage daemon | `ralph daemon <start\|stop\|status\|logs>` |
+| `status` | Show status | `ralph status [--json]` |
+| `logs` | View logs | `ralph logs [lines]` |
+
+### Detailed Usage
+
+#### `ralph init` - Initialize Workspace
+
+```powershell
+# Basic initialization
+.\ralph.ps1 init
+
+# Initialize with template
+.\ralph.ps1 init --template node-react
+
+# Initialize in specific directory
+.\ralph.ps1 init ./my-project
+```
+
+**Creates:**
+- `.ralph/` - Configuration directory
+- `prd.json` - Product requirements template
+- `KIMI.md` - Agent instructions
+- `progress.txt` - Progress log
+- `.gitignore` - Git ignore file
+
+**Templates:**
+- `node-react` - React + TypeScript + Vite
+- `node-next` - Next.js application
+- `python-flask` - Python Flask API
+- `python-django` - Python Django app
+- `go-cli` - Go CLI tool
+- `generic` - Minimal setup (default)
+
+#### `ralph doctor` - Diagnostics
+
+```powershell
 # Check health
-.\ralph.ps1 -Health
+.\ralph.ps1 doctor
 
-# Start production daemon (24/7)
-.\ralph.ps1 -Daemon
+# Check and auto-fix issues
+.\ralph.ps1 doctor --fix
+```
+
+**Checks:**
+- PowerShell 7+ installed
+- Kimi CLI installed and authenticated
+- Git installed and configured
+- Workspace structure valid
+- PRD JSON valid
+- Daemon status
+
+#### `ralph bead` - Create Task
+
+```powershell
+# Create simple bead
+.\ralph.ps1 bead "Add user login page"
+
+# Create bead with custom verifier
+.\ralph.ps1 bead "Fix API bug" --verifier "npm test"
+
+# Create bead with timeout
+.\ralph.ps1 bead "Complex feature" --verifier "npm run e2e" --timeout 3600
+```
+
+**Auto-detects project type** and adds appropriate verifiers:
+- Node.js: `npm run build`, `npm test`
+- Go: `go build`, `go test`
+- Python: `python -m py_compile`
+
+#### `ralph run` - Run Main Loop
+
+```powershell
+# Run 10 iterations (default)
+.\ralph.ps1 run
+
+# Run specific iterations
+.\ralph.ps1 run 20
+
+# Run once (for daemon)
+.\ralph.ps1 run 1
+```
+
+#### `ralph daemon` - Manage Daemon
+
+```powershell
+# Start daemon
+.\ralph.ps1 daemon start
+
+# Check status
+.\ralph.ps1 daemon status
+
+# View logs
+.\ralph.ps1 daemon logs
+
+# Stop daemon
+.\ralph.ps1 daemon stop
+```
+
+#### `ralph status` - Show Status
+
+```powershell
+# Human-readable status
+.\ralph.ps1 status
+
+# JSON output for automation
+.\ralph.ps1 status --json
+```
+
+#### `ralph logs` - View Logs
+
+```powershell
+# Show last 20 lines
+.\ralph.ps1 logs
+
+# Show last 50 lines
+.\ralph.ps1 logs 50
 ```
 
 ---
@@ -82,61 +191,53 @@ Create a `prd.json` file in your project:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    Ralph v2.1 Production Architecture                    │
+│                         Ralph Command Interface                          │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐            │
-│   │  ralph.ps1   │     │ralph-daemon  │     │ralph-health  │            │
-│   │  (interactive│     │(24/7 service)│     │(monitoring)  │            │
-│   └──────┬───────┘     └──────┬───────┘     └──────────────┘            │
-│          │                    │                                          │
-│          └─────────┬──────────┘                                          │
-│                    │                                                     │
-│           ┌────────▼────────┐                                            │
-│           │   ralph-core    │  ← Shared functions (JSON, logging, git)   │
-│           │    module       │                                            │
-│           └────────┬────────┘                                            │
-│                    │                                                     │
-│    ┌───────────────┼───────────────┐                                    │
-│    │               │               │                                    │
-│    ▼               ▼               ▼                                    │
-│ ┌──────┐      ┌──────┐      ┌──────────┐                               │
-│ │Kimi  │      │ Git  │      │  prd.json│                               │
-│ │CLI   │      │      │      │          │                               │
-│ └──────┘      └──────┘      └──────────┘                               │
+│  ralph init ──────┐                                                      │
+│  ralph doctor ────┤                                                      │
+│  ralph bead ──────┼──► ralph-core.ps1 (shared functions)                │
+│  ralph run ───────┤       ├──► Kimi CLI                                 │
+│  ralph daemon ────┤       ├──► Git                                      │
+│  ralph status ────┘       └──► prd.json                                 │
+│  ralph logs                                                              │
 │                                                                          │
 │  Memory: git history + prd.json + progress.txt + bead files             │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Components
+### File Structure
 
-| Component | Purpose | Use When |
-|-----------|---------|----------|
-| `ralph.ps1` | Interactive mode | Development, testing, one-off runs |
-| `ralph-daemon.ps1` | 24/7 daemon | Production, CI/CD, long-running tasks |
-| `ralph-health.ps1` | Health monitoring | Troubleshooting, maintenance |
-| `install-service.ps1` | Windows Service | System-level 24/7 operation |
-| `ralph-core.ps1` | Shared functions | Custom scripts, module import |
+```
+.
+├── ralph.ps1              # Main command interface
+├── ralph-core.ps1         # Shared functions
+├── ralph-daemon.ps1       # Background daemon
+├── install-service.ps1    # Windows Service installer
+├── ralph.sh               # Linux/Mac version
+├── KIMI.md                # Agent instructions
+├── prd.json               # Your product requirements
+├── progress.txt           # Execution log
+└── .ralph/
+    ├── logs/              # Log files
+    └── beads/             # Task beads (daemon mode)
+```
 
 ---
 
 ## 🚀 Running Modes
 
-### 1. Interactive Mode (`ralph.ps1`)
+### 1. Interactive Mode (`ralph run`)
 
 Best for: Development, testing, one-off runs
 
 ```powershell
 # Run with default 10 iterations
-.\ralph.ps1
+.\ralph.ps1 run
 
 # Run with specific iteration count
-.\ralph.ps1 20
-
-# Show help
-.\ralph.ps1 -Help
+.\ralph.ps1 run 20
 ```
 
 **Characteristics:**
@@ -145,19 +246,22 @@ Best for: Development, testing, one-off runs
 - Stops when terminal closes
 - Good for development
 
-### 2. Production Daemon Mode (`ralph-daemon.ps1`)
+### 2. Daemon Mode (`ralph daemon`)
 
-Best for: 24/7 autonomous operation, CI/CD, long-running tasks
+Best for: 24/7 autonomous operation
 
 ```powershell
-# Start daemon in foreground (for testing)
-.\ralph.ps1 -Daemon
+# Start daemon
+.\ralph.ps1 daemon start
 
-# Start daemon as background job
-Start-Process pwsh -ArgumentList "-File .\ralph-daemon.ps1" -WindowStyle Hidden
+# Check status
+.\ralph.ps1 daemon status
 
-# Install as Windows scheduled task (runs on login)
-.\ralph.ps1 -InstallTask
+# View logs
+.\ralph.ps1 daemon logs
+
+# Stop daemon
+.\ralph.ps1 daemon stop
 ```
 
 **Characteristics:**
@@ -201,57 +305,36 @@ Best for: True 24/7 operation, system-level service
 
 ```powershell
 # Full diagnostic
-.\ralph.ps1 -Health
+.\ralph.ps1 doctor
 
 # Quick status only
-.\ralph.ps1 -Status
+.\ralph.ps1 status
 
-# Check beads only
-.\ralph-health.ps1 -Beads
-
-# View recent logs
-.\ralph-health.ps1 -Logs
+# View logs
+.\ralph.ps1 logs
 ```
 
-### Automated Maintenance
-
-```powershell
-# Reset stuck beads
-.\ralph.ps1 -ResetStuck
-
-# Auto-fix common issues
-.\ralph.ps1 -Health -Fix
-```
-
-### Sample Health Output
+### Sample Output
 
 ```
-Ralph Health Check v2.1.0
-======================================
-Workspace: C:\Projects\MyApp
+Ralph Diagnostics
+=================
 
-Prerequisites:
-  [OK] Kimi CLI: v1.2.3
-  [OK] Git: git version 2.40.0
-  [OK] PowerShell: Version 7.4.0
+Checking prerequisites...
+✓ PowerShell 7.4.0
+✓ Kimi CLI (v1.2.3)
+✓ Git installed
 
-Configuration:
-  [OK] PRD File: 3/5 stories complete
-  [OK] Prompt File: 3300 bytes
-  [OK] Git Repository: Branch: ralph/feature, clean
+Checking workspace structure...
+✓ prd.json exists
+✓ KIMI.md exists
+✓ .ralph/ directory exists
 
-Daemon Status:
-  [RUNNING] Daemon Process: PID: 12345
-  [Ready] Scheduled Task: Installed
+Checking daemon status...
+✓ Daemon running (PID: 12345)
 
-Bead Status:
-  Total: 5
-  Pending: 2
-  In Progress: 0
-  Completed: 3
-  Failed: 0
-
-Overall Status: HEALTHY
+=================
+✓ All checks passed! Ralph is ready.
 ```
 
 ---
@@ -260,9 +343,6 @@ Overall Status: HEALTHY
 
 ### PowerShell 7 Not Found
 
-**Problem:** `pwsh: The term 'pwsh' is not recognized`
-
-**Solution:**
 ```powershell
 # Install PowerShell 7
 winget install Microsoft.PowerShell
@@ -271,136 +351,59 @@ winget install Microsoft.PowerShell
 https://github.com/PowerShell/PowerShell/releases
 ```
 
-### UTF-8 BOM Errors
-
-**Problem:** `ConvertFrom-Json: Unexpected UTF-8 BOM`
-
-**Solution:** Ralph v2.1 handles BOM automatically. If you encounter this:
+### Kimi CLI Not Found
 
 ```powershell
-# Fix a specific file
-$content = Get-Content file.json -Raw -Encoding UTF8
-if ($content[0] -eq "`ufeff") { $content = $content.Substring(1) }
-$content | ConvertFrom-Json
+# Install
+pip install kimi-cli
+
+# Authenticate
+kimi config set api_key <your-key>
 ```
 
-### Daemon Not Starting
+### Workspace Not Initialized
 
-**Problem:** Daemon fails to start or immediately exits.
-
-**Solution:**
 ```powershell
-# Check for errors
-.\ralph.ps1 -Health
+# Initialize workspace
+.\ralph.ps1 init
 
-# Try running in foreground to see errors
-.\ralph.ps1 -Daemon
-
-# Check prerequisites
-kimi --version
-git --version
-pwsh --version
+# Check health
+.\ralph.ps1 doctor
 ```
 
-### Stuck Beads
+### Daemon Won't Start
 
-**Problem:** Beads remain "in_progress" indefinitely.
-
-**Solution:**
 ```powershell
-# Check for stuck beads
-.\ralph.ps1 -Status
+# Check for issues
+.\ralph.ps1 doctor --fix
 
-# Reset stuck beads manually
-.\ralph.ps1 -ResetStuck
-
-# Or use health check with fix
-.\ralph.ps1 -Health -Fix
+# Try running in foreground
+.\ralph.ps1 run 1
 ```
-
-### Kimi CLI Hanging
-
-**Problem:** Kimi CLI process hangs and never completes.
-
-**Solution:** The daemon has a 2-hour timeout. If Kimi hangs:
-1. Check your internet connection
-2. Verify API key: `kimi config get api_key`
-3. Check Kimi status page
-4. Restart daemon: `Get-Process *ralph* | Stop-Process; .\ralph.ps1 -Daemon`
-
----
-
-## 📁 File Reference
-
-### Core Files
-
-| File | Purpose | When to Use |
-|------|---------|-------------|
-| `ralph.ps1` | Main entry point | Always - dispatches to other scripts |
-| `ralph-core.ps1` | Core functions module | Import for custom scripts |
-| `ralph-daemon.ps1` | Production daemon | 24/7 operation |
-| `ralph-health.ps1` | Health monitoring | Troubleshooting |
-| `install-service.ps1` | Windows Service installer | System-level service |
-| `ralph.sh` | Linux/Mac version | Cross-platform support |
-| `KIMI.md` | Agent instructions | Kimi reads this |
-
-### Configuration Files
-
-| File | Purpose | Format |
-|------|---------|--------|
-| `prd.json` | Product requirements | JSON |
-| `test-plan.json` | Test coverage | JSON |
-| `progress.txt` | Execution log | Markdown |
-| `.last-branch` | Branch tracking | Plain text |
-
-### Generated Directories
-
-| Directory | Contents | Managed By |
-|-----------|----------|------------|
-| `.ralph/` | Configuration | Ralph |
-| `.ralph/logs/` | Log files | Ralph (auto-rotated) |
-| `.ralph/beads/` | Bead files (daemon) | Ralph daemon |
-| `archive/` | Old runs | Ralph (on branch change) |
 
 ---
 
 ## ⚙️ Configuration
 
-### Environment Variables
-
-```powershell
-# Optional: Set custom log directory
-$env:RALPH_LOG_DIR = "D:\logs\ralph"
-
-# Optional: Set bead timeout (minutes)
-$env:RALPH_BEAD_TIMEOUT = 180
-
-# Optional: Set poll interval (seconds)
-$env:RALPH_POLL_INTERVAL = 60
-```
-
 ### PRD Format
 
 ```json
 {
-  "project": "ProjectName",
+  "project": "MyApp",
   "branchName": "ralph/feature-branch",
-  "description": "What this PRD implements",
-  "testDriven": true,
+  "description": "Feature description",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Story title",
-      "description": "As a user...",
-      "acceptanceCriteria": ["Criteria 1", "Criteria 2"],
+      "title": "Add user authentication",
+      "description": "As a user, I want to log in...",
+      "acceptanceCriteria": [
+        "Login form validates email",
+        "Password must be 8+ characters",
+        "Tests pass"
+      ],
       "priority": 1,
-      "passes": false,
-      "notes": "",
-      "testing": {
-        "testFirst": true,
-        "testTypes": ["unit", "e2e"],
-        "browserTest": true
-      }
+      "passes": false
     }
   ]
 }
@@ -410,32 +413,12 @@ $env:RALPH_POLL_INTERVAL = 60
 
 ## 🛡️ Reliability Features
 
-### Process Isolation
-Each bead runs in a separate PowerShell process to prevent:
-- Memory leaks from accumulating Kimi CLI instances
-- File handle exhaustion
-- Cascading failures from one corrupt bead
-
-### Stuck Bead Detection
-Automatically detects and resets beads stuck for >2 hours:
-- Monitors `in_progress` beads
-- Resets to `retry` status
-- Tracks stuck count for analysis
-
-### Log Rotation
-Prevents disk space issues:
-- 10MB max per log file
-- 5 backup files retained
-- Automatic compression
-
-### Retry Logic
-Failed beads are retried up to 3 times before marking as failed.
-
-### UTF-8 BOM Handling
-Properly handles JSON files with or without BOM:
-- Reads files with `-Encoding UTF8`
-- Strips BOM if present
-- Writes without BOM
+- **Process Isolation** - Each bead runs in separate process
+- **Stuck Bead Detection** - Auto-reset beads stuck >2 hours
+- **Log Rotation** - Prevents disk space issues
+- **Retry Logic** - Retries failed beads up to 3 times
+- **UTF-8 BOM Handling** - Proper encoding handling
+- **Graceful Shutdown** - Clean exit on Ctrl+C
 
 ---
 
@@ -443,7 +426,7 @@ Properly handles JSON files with or without BOM:
 
 Contributions welcome! Areas for improvement:
 
-- Additional testing strategies
+- Additional templates
 - MCP server integrations
 - CI/CD workflow templates
 - Language/framework support
