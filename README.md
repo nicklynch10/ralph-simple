@@ -21,11 +21,34 @@ winget install Microsoft.PowerShell
 
 # Kimi CLI
 pip install kimi-cli
-kimi config set api_key <your-key>
+
+# Configure Kimi CLI with Moonshot API Key
+# Get your key from: https://platform.moonshot.cn/
+kimi config set api_key sk-your-moonshot-api-key-here
 
 # Git
 winget install Git.Git
 ```
+
+**⚠️ IMPORTANT: API Key Configuration**
+
+Ralph uses the Kimi CLI, which requires a Moonshot API key (not Kimi login):
+
+1. Go to https://platform.moonshot.cn/ (Moonshot AI platform)
+2. Create an account and generate an API key
+3. Set it in Kimi CLI: `kimi config set api_key sk-...`
+
+**Verify it works:**
+```powershell
+kimi --version
+kimi config get api_key  # Should show your key
+```
+
+**Common Issues:**
+- ❌ Don't use `kimi login` (opens browser, not needed)
+- ❌ Don't use Kimi web app credentials
+- ✅ Use Moonshot API key from https://platform.moonshot.cn/
+- ✅ Key format: `sk-xxxxxxxxxxxxxxxx`
 
 ### 2. Initialize & Start
 
@@ -320,6 +343,30 @@ crontab -e
 ---
 
 ## Troubleshooting
+
+### API Key Issues (401 Invalid Authentication)
+
+**Problem**: `401 Invalid Authentication` when Ralph tries to invoke Kimi
+
+**Solution**:
+```powershell
+# 1. Get API key from Moonshot (not Kimi login)
+# Visit: https://platform.moonshot.cn/
+# Create API key (format: sk-xxxxxxxxxxxxxxxx)
+
+# 2. Configure Kimi CLI
+kimi config set api_key sk-your-key-here
+
+# 3. Verify
+kimi config get api_key
+kimi --version
+```
+
+**Common Mistakes**:
+- ❌ Using `kimi login` (opens browser, not needed)
+- ❌ Using Kimi web app password
+- ❌ Using wrong API endpoint
+- ✅ Using Moonshot API key from https://platform.moonshot.cn/
 
 ### Check if Running
 

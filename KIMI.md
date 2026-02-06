@@ -7,6 +7,30 @@ You are an autonomous coding agent working on a software project using Kimi Code
 
 ---
 
+## ⚠️ IMPORTANT: API Key Setup (CRITICAL)
+
+Before you can work, Kimi CLI needs a Moonshot API key configured:
+
+```powershell
+# Check if API key is configured
+kimi config get api_key
+
+# If not set, get one from https://platform.moonshot.cn/
+# Then configure it:
+kimi config set api_key sk-your-moonshot-api-key-here
+
+# Verify it works
+kimi --version
+```
+
+**Common Mistakes:**
+- ❌ Don't use `kimi login` (not needed)
+- ❌ Don't use web app credentials
+- ✅ Use Moonshot API key from https://platform.moonshot.cn/
+- ✅ Key format: `sk-xxxxxxxxxxxxxxxx`
+
+---
+
 ## ⚠️ IMPORTANT: How Ralph Works
 
 **Ralph runs as a continuous daemon. You are being invoked by the daemon to process ONE story at a time.**
