@@ -13,6 +13,18 @@ This document outlines additional improvements and ideas for enhancing Ralph bey
 - [x] Context-aware testing (screenshot/interaction/E2E levels)
 - [x] Test batching for efficiency
 
+### Production Stability (v2.2.1)
+- [x] Fixed PowerShell Unicode escape syntax (`\u{feff}`)
+- [x] Fixed Export-ModuleMember runtime error
+- [x] Fixed daemon retry logic bug (critical)
+- [x] Added defensive bead property initialization
+- [x] Added PRD-to-bead synchronization verification
+- [x] Fixed process timeout race conditions
+- [x] Fixed log directory race conditions
+- [x] Fixed bead file corruption on concurrent writes
+- [x] Added `Convert-PrdToBeads` function
+- [x] Cross-platform PowerShell detection
+
 ---
 
 ## Proposed Improvements

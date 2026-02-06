@@ -19,7 +19,7 @@ $ErrorActionPreference = "Stop"
 # CONFIGURATION
 # ==============================================================================
 
-$script:RalphVersion = "2.1.0"
+$script:RalphVersion = "2.2.2"
 $script:RalphConfig = @{
     # Default paths (can be overridden)
     PrdFile = "prd.json"
@@ -134,8 +134,8 @@ function Read-RalphJson {
         # Use -Raw to read entire file, -Encoding UTF8 handles BOM correctly
         $content = Get-Content -Path $Path -Raw -Encoding UTF8
         
-        # Remove BOM if present (0xEF 0xBB 0xBF = `ufeff)
-        if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") {
+        # Remove BOM if present (0xEF 0xBB 0xBF = `u{feff})
+        if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
             $content = $content.Substring(1)
         }
         
@@ -194,6 +194,210 @@ function Write-RalphJson {
 # ==============================================================================
 # PRD OPERATIONS
 # ==============================================================================
+
+<#
+.SYNOPSIS
+    Converts PRD user stories to bead files for daemon processing.
+.DESCRIPTION
+    Reads prd.json and creates corresponding bead files in .ralph/beads/.
+    Each user story becomes a bead with full schema initialization.
+    Existing beads are not overwritten unless -Force is specified.
+    
+    The bead schema includes:
+    - Core fields: id, type, status, priority, title, intent, description
+    - dod (Definition of Done): verifiers, evidence_required
+    - constraints: max_iterations, time_budget_minutes, allowed_dirs
+    - ralph_meta: attempt_count, timeout_count, stuck_count, timestamps
+.PARAMETER PrdPath
+    Path to the PRD file.
+.PARAMETER BeadsDir
+    Directory to save bead files.
+.PARAMETER Force
+    Overwrite existing bead files.
+.OUTPUTS
+    Array of created bead objects.
+.EXAMPLE
+    Convert-PrdToBeads -PrdPath "prd.json" -BeadsDir ".ralph/beads"
+.EXAMPLE
+    Convert-PrdToBeads -Force  # Overwrite existing beads
+#>
+function Convert-PrdToBeads {
+    param(
+        [Parameter()]
+        [string]$PrdPath = $script:RalphConfig.PrdFile,
+        
+        [Parameter()]
+        [string]$BeadsDir = (Join-Path ".ralph" "beads"),
+        
+        [Parameter()]
+        [switch]$Force
+    )
+    
+    Write-RalphLog "Converting PRD to beads..." -Level "INFO"
+    
+    # Load PRD
+    $prd = Read-RalphJson -Path $PrdPath
+    if (-not $prd) {
+        throw "PRD file not found or invalid at $PrdPath"
+    }
+    
+    if (-not $prd.userStories) {
+        Write-RalphLog "PRD has no user stories" -Level "WARN"
+        return @()
+    }
+    
+    # Ensure beads directory exists
+    if (-not (Test-Path $BeadsDir)) {
+        New-Item -ItemType Directory -Force -Path $BeadsDir -ErrorAction SilentlyContinue | Out-Null
+    }
+    
+    $createdBeads = @()
+    $skippedBeads = 0
+    
+    foreach ($story in $prd.userStories) {
+        $beadId = $story.id
+        if (-not $beadId) {
+            Write-RalphLog "Skipping story without id: $($story.title)" -Level "WARN"
+            continue
+        }
+        
+        $beadFile = Join-Path $BeadsDir "$beadId.json"
+        
+        # Skip if already exists and not forcing
+        if ((Test-Path $beadFile) -and -not $Force) {
+            Write-RalphLog "Bead already exists: $beadId" -Level "DEBUG"
+            $skippedBeads++
+            continue
+        }
+        
+        # Build verifiers from acceptance criteria and test files
+        $verifiers = @()
+        
+        # Add verifiers from acceptance criteria
+        if ($story.acceptanceCriteria -and $story.acceptanceCriteria.Count -gt 0) {
+            $verifiers += @{
+                name = "Acceptance criteria met"
+                command = "# Verify: $($story.acceptanceCriteria -join ', ')"
+                expect = @{ exit_code = 0 }
+                timeout_seconds = 60
+            }
+        }
+        
+        # Add test file verifiers if specified
+        if ($story.testing -and $story.testing.testFiles) {
+            foreach ($testFile in $story.testing.testFiles) {
+                $verifiers += @{
+                    name = "Test file exists: $testFile"
+                    command = "Test-Path '$testFile'"
+                    expect = @{ exit_code = 0 }
+                    timeout_seconds = 30
+                }
+            }
+        }
+        
+        # Default verifier if none specified
+        if ($verifiers.Count -eq 0) {
+            $verifiers += @{
+                name = "Story completed"
+                command = "# Manual verification required"
+                expect = @{ exit_code = 0 }
+                timeout_seconds = 60
+            }
+        }
+        
+        # Create bead object with FULL schema
+        $now = Get-Date -Format "o"
+        $bead = @{
+            # Core fields
+            id = $beadId
+            type = "prd-story"
+            status = if ($story.passes -eq $true) { "completed" } else { "pending" }
+            priority = if ($story.priority) { $story.priority } else { 2 }
+            title = if ($story.title) { $story.title } else { "Untitled Story" }
+            intent = if ($story.description) { $story.description } else { "" }
+            description = if ($story.description) { $story.description } else { "" }
+            
+            # PRD linkage
+            prd_reference = @{
+                story_id = $beadId
+                project = if ($prd.project) { $prd.project } else { "unknown" }
+                branch_name = if ($prd.branchName) { $prd.branchName } else { "main" }
+            }
+            
+            # Definition of Done
+            dod = @{
+                verifiers = $verifiers
+                evidence_required = $true
+                acceptance_criteria = if ($story.acceptanceCriteria) { $story.acceptanceCriteria } else { @() }
+            }
+            
+            # Constraints
+            constraints = @{
+                max_iterations = 10
+                time_budget_minutes = 60
+                allowed_dirs = @()
+                blocked_dirs = @(".git", ".ralph", "node_modules", "__pycache__")
+            }
+            
+            # Metadata
+            created_at = $now
+            updated_at = $now
+            
+            # Ralph tracking metadata
+            ralph_meta = @{
+                attempt_count = 0
+                timeout_count = 0
+                stuck_count = 0
+                last_attempt = $null
+                last_error = $null
+                status_detail = $null
+                last_updated = $now
+                created_by = "Convert-PrdToBeads"
+                version = $script:RalphVersion
+            }
+        }
+        
+        # Save bead atomically with backup
+        $tempFile = "$beadFile.tmp"
+        $backupFile = "$beadFile.bak"
+        
+        try {
+            # Backup existing if present
+            if (Test-Path $beadFile) {
+                Copy-Item $beadFile $backupFile -Force -ErrorAction SilentlyContinue
+            }
+            
+            # Write to temp then atomic move
+            $json = $bead | ConvertTo-Json -Depth 10
+            [System.IO.File]::WriteAllText($tempFile, $json, [System.Text.UTF8Encoding]::new($false))
+            Move-Item $tempFile $beadFile -Force
+            
+            # Remove backup on success
+            if (Test-Path $backupFile) {
+                Remove-Item $backupFile -ErrorAction SilentlyContinue
+            }
+            
+            Write-RalphLog "Created bead: $beadId" -Level "SUCCESS"
+            $createdBeads += $bead
+        }
+        catch {
+            Write-RalphLog "Failed to create bead $beadId`: $_" -Level "ERROR"
+            
+            # Restore from backup on failure
+            if (Test-Path $backupFile) {
+                Copy-Item $backupFile $beadFile -Force -ErrorAction SilentlyContinue
+            }
+            
+            # Cleanup temp file
+            if (Test-Path $tempFile) {
+                Remove-Item $tempFile -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    
+    Write-RalphLog "Created $($createdBeads.Count) beads from PRD (skipped $skippedBeads existing)" -Level "SUCCESS"
+    return $createdBeads
+}
 
 <#
 .SYNOPSIS
@@ -468,7 +672,7 @@ function Invoke-RalphArchive {
         $lastBranch = Get-Content $LastBranchPath -Raw -Encoding UTF8
         
         # Clean up potential BOM
-        $lastBranch = $lastBranch -replace "^`ufeff", ""
+        $lastBranch = $lastBranch -replace "^`u{feff}", ""
         $lastBranch = $lastBranch.Trim()
         
         if ($currentBranch -and $lastBranch -and ($currentBranch -ne $lastBranch)) {
@@ -935,24 +1139,27 @@ function Start-RalphLoop {
 # EXPORTS
 # ==============================================================================
 
-# Export functions if used as a module
-Export-ModuleMember -Function @(
-    'Write-RalphLog',
-    'Read-RalphJson',
-    'Write-RalphJson',
-    'Get-RalphPrd',
-    'Get-NextUserStory',
-    'Update-StoryStatus',
-    'Test-AllStoriesComplete',
-    'Initialize-ProgressFile',
-    'Add-ProgressEntry',
-    'Invoke-RalphGitCommit',
-    'Invoke-RalphArchive',
-    'Set-RalphBranchTracking',
-    'Invoke-RalphKimi',
-    'Test-RalphVerifier',
-    'Show-RalphStatus',
-    'Start-RalphLoop'
-) -ErrorAction SilentlyContinue
+# Export functions if used as a module (only when actually imported as module)
+if ($MyInvocation.MyCommand.ScriptBlock.Module) {
+    Export-ModuleMember -Function @(
+        'Write-RalphLog',
+        'Read-RalphJson',
+        'Write-RalphJson',
+        'Get-RalphPrd',
+        'Get-NextUserStory',
+        'Update-StoryStatus',
+        'Test-AllStoriesComplete',
+        'Initialize-ProgressFile',
+        'Add-ProgressEntry',
+        'Invoke-RalphGitCommit',
+        'Invoke-RalphArchive',
+        'Set-RalphBranchTracking',
+        'Invoke-RalphKimi',
+        'Test-RalphVerifier',
+        'Show-RalphStatus',
+        'Start-RalphLoop',
+        'Convert-PrdToBeads'
+    )
+}
 
 Write-RalphLog "Ralph Core Module v$script:RalphVersion loaded" -Level "DEBUG" -NoFile

@@ -2,6 +2,136 @@
 
 All notable changes to the Ralph for Kimi Code CLI project.
 
+## [2.2.2] - 2026-02-06
+
+### Production Hardening - Independent Agent Testing Results
+
+This release addresses all issues identified during extensive independent agent testing. The daemon is now significantly more robust for 24/7 operation.
+
+#### Fixed (P0 - Critical)
+
+- **Bead Property Initialization (CRITICAL)**
+  - Added `Initialize-BeadSchema` function for comprehensive bead validation
+  - Ensures ALL required fields exist: core fields, ralph_meta, dod, constraints
+  - Prevents "property cannot be found" errors on manually created beads
+  - Automatic schema migration for beads from older versions
+
+- **Retry Logic Bug - Enhanced PRD Verification**
+  - Dual verification: checks bead status AND PRD `passes` field
+  - Daemon now correctly detects completion even if bead file wasn't updated
+  - Prevents false "incomplete" statuses causing infinite retry loops
+
+#### Fixed (P1 - High Priority)
+
+- **Save-Bead Atomic Writes with Backup/Restore**
+  - Implemented full atomic write pattern: temp -> backup -> move -> cleanup
+  - Automatic restore from backup on write failure
+  - Prevents bead corruption on concurrent writes or crashes
+
+- **Enhanced Convert-PrdToBeads Function**
+  - Full schema initialization with all required fields
+  - PRD linkage metadata (story_id, project, branch_name)
+  - Test file verifiers auto-generated from PRD testing metadata
+  - Backup/restore safety for bead updates
+
+#### Fixed (P2 - Medium Priority)
+
+- **Daemon Auto-Restart with Exponential Backoff**
+  - Replaced "stop after 5 errors" with intelligent restart logic
+  - Exponential backoff: 30s -> 60s -> 120s -> ... -> max 10 minutes
+  - Configurable via `RestartOnFailure`, `RestartDelaySeconds`, `MaxRestartDelaySeconds`
+  - Daemon now truly runs 24/7, recovering from transient failures
+
+- **PowerShell Version Detection**
+  - New `Get-PowerShellPath` function with proper cross-platform detection
+  - Tries PowerShell 7+ first, falls back to PowerShell 5.1 with warning
+  - Clear error message if no PowerShell found
+
+#### Added
+
+- **Bead Schema Documentation**
+  - Complete bead schema specification in AGENTS.md
+  - All fields documented with types and defaults
+  - Migration guide for custom bead creation
+
+#### Changed
+
+- **Version bumped to 2.2.2** across all scripts
+- **Improved error logging** with consecutive error counters
+- **Enhanced daemon logging** with restart/backoff information
+
+---
+
+## [2.2.1] - 2026-02-06
+
+### Critical Bug Fixes - Production Stability
+
+This release addresses all critical issues identified during extensive independent agent testing. All P0 and P1 issues have been resolved.
+
+#### Fixed (P0 - Critical)
+
+- **PowerShell Unicode Escape Syntax Error**
+  - Fixed invalid `\ufeff` syntax to proper `\u{feff}` (PowerShell 7+ requires curly braces)
+  - Affected: ralph-core.ps1, ralph-daemon.ps1, ralph-health.ps1, ralph.ps1
+  - Was causing ParserError when reading UTF-8 BOM files
+
+- **Export-ModuleMember Runtime Error**
+  - Wrapped `Export-ModuleMember` in module check: `if ($MyInvocation.MyCommand.ScriptBlock.Module)`
+  - Prevents "can only be called from inside a module" error when dot-sourcing
+
+- **Daemon Retry Logic Bug (Critical)**
+  - Fixed issue where beads with exit code 0 were incorrectly marked for retry
+  - Root cause: Status check happened before PRD synchronization
+  - Fix: Added dual verification - checks both bead status AND PRD `passes` field
+  - New `Get-PrdForBead` function provides source-of-truth verification
+
+#### Fixed (P1 - High Priority)
+
+- **Missing Bead Schema Properties**
+  - Added defensive property initialization in `Get-Bead`
+  - Ensures `last_attempt`, `status_detail`, `attempt_count`, `timeout_count`, `stuck_count` exist
+  - Prevents "property cannot be found" errors on manually created beads
+
+- **PRD-to-Bead Synchronization Gap**
+  - Daemon now verifies completion against PRD, not just exit code
+  - Ralph updates PRD when stories complete; daemon reads PRD to confirm
+  - Eliminates false "incomplete" statuses
+
+#### Fixed (P2 - Medium Priority)
+
+- **Process Isolation Timeout Handling**
+  - Added `HasExited` check before `Stop-Process` to prevent race conditions
+  - Process may exit between timeout detection and kill attempt
+
+- **Log Directory Creation Race Condition**
+  - Added `-ErrorAction SilentlyContinue` to `New-Item` calls
+  - Multiple simultaneous executions no longer cause errors
+
+- **Bead File Corruption on Concurrent Writes**
+  - Implemented atomic write pattern: write to temp file, then `Move-Item`
+  - Prevents JSON corruption when multiple processes write same bead
+
+- **Cross-Platform PowerShell Compatibility**
+  - Replaced hardcoded `pwsh.exe` with dynamic detection
+  - Uses `Get-Command` to find appropriate PowerShell executable
+  - Works on Windows (pwsh.exe/powershell.exe), Linux/Mac (pwsh/powershell)
+
+#### Added
+
+- **`Convert-PrdToBeads` Function** (ralph-core.ps1)
+  - Converts PRD user stories to bead files for daemon processing
+  - Usage: `Convert-PrdToBeads -PrdPath "prd.json" -BeadsDir ".ralph/beads"`
+  - Preserves existing beads (use `-Force` to overwrite)
+  - Auto-generates verifiers from acceptance criteria
+
+#### Changed
+
+- **Version bumped to 2.2.1** across all scripts
+- **Standardized UTF-8 BOM handling** - all files now use `\u{feff}` syntax
+- **Documentation updated** in AGENTS.md with correct syntax examples
+
+---
+
 ## [2.1.0] - 2026-02-06
 
 ### Major Changes - PowerShell 7 & Windows Service Support
@@ -195,6 +325,7 @@ Ralph follows [Semantic Versioning](https://semver.org/):
 
 | Ralph Version | prd.json | progress.txt | PowerShell |
 |---------------|----------|--------------|------------|
+| 2.2.x | Compatible | Compatible | 7.0+ |
 | 2.1.x | Compatible | Compatible | 7.0+ |
 | 2.0.x | Compatible | Compatible | 5.1+ |
 | 1.1.x | Compatible | Compatible | 5.1+ |
@@ -203,6 +334,28 @@ Ralph follows [Semantic Versioning](https://semver.org/):
 All versions use the same `prd.json` format and are fully backward compatible.
 
 ### Migration Guide
+
+#### From v2.1 to v2.2
+
+1. **Update your scripts**
+   ```powershell
+   # Copy new files (all P0 bugs fixed)
+   copy ralph.ps1 my-project\
+   copy ralph-core.ps1 my-project\
+   copy ralph-daemon.ps1 my-project\
+   copy ralph-health.ps1 my-project\
+   ```
+
+2. **Optional: Convert existing PRD to beads**
+   ```powershell
+   # Import core module
+   . ./ralph-core.ps1
+   
+   # Convert PRD stories to beads
+   Convert-PrdToBeads
+   ```
+
+3. **No breaking changes** - all file formats remain compatible
 
 #### From v2.0 to v2.1
 

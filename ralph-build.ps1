@@ -52,7 +52,7 @@ function Write-Log {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logEntry = "[$timestamp] [$Level] $Message"
     Write-Host $logEntry
-    Add-Content -Path $LOG_FILE -Value $logEntry
+    Add-Content -Path $LOG_FILE -Value $logEntry -Encoding UTF8
 }
 
 # ============================================================================
@@ -63,13 +63,24 @@ function Read-Backlog {
     if (-not (Test-Path $BACKLOG_FILE)) {
         throw "Backlog file not found: $BACKLOG_FILE"
     }
-    return Get-Content $BACKLOG_FILE | ConvertFrom-Json
+    
+    # Read with BOM handling (same pattern as ralph-core.ps1)
+    $content = Get-Content -Path $BACKLOG_FILE -Raw -Encoding UTF8
+    
+    # Remove BOM if present (0xEF 0xBB 0xBF = `u{feff})
+    if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
+        $content = $content.Substring(1)
+    }
+    
+    return $content | ConvertFrom-Json
 }
 
 function Write-Backlog {
     param($Backlog)
     $Backlog.updatedAt = (Get-Date -Format "o")
-    $Backlog | ConvertTo-Json -Depth 20 | Set-Content $BACKLOG_FILE
+    $json = $Backlog | ConvertTo-Json -Depth 20
+    # Write with UTF8 no BOM (same pattern as ralph-core.ps1)
+    [System.IO.File]::WriteAllText($BACKLOG_FILE, $json, [System.Text.UTF8Encoding]::new($false))
 }
 
 function Get-NextTask {
@@ -231,7 +242,8 @@ function Invoke-Build {
     
     # Save build context for Kimi to read
     $contextFile = Join-Path $ARTIFACTS_DIR "$($Task.id)-context.json"
-    $buildContext | Set-Content $contextFile
+    # Write with UTF8 no BOM
+    [System.IO.File]::WriteAllText($contextFile, $buildContext, [System.Text.UTF8Encoding]::new($false))
     
     # Check if prompt file exists
     if (-not (Test-Path $PROMPT_FILE)) {

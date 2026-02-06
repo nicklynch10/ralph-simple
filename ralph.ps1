@@ -49,7 +49,7 @@ $ErrorActionPreference = "Stop"
 # CONFIGURATION
 # ==============================================================================
 
-$script:RalphVersion = "2.2.0"
+$script:RalphVersion = "2.2.2"
 $script:ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $script:ScriptDir) { $script:ScriptDir = Get-Location }
 
@@ -448,7 +448,7 @@ function Invoke-DoctorCommand {
         # Validate JSON
         try {
             $content = Get-Content $prdFile -Raw -Encoding UTF8
-            if ($content[0] -eq "`ufeff") { $content = $content.Substring(1) }
+            if ($content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
             $prd = $content | ConvertFrom-Json
             
             if ($prd.userStories) {
@@ -746,7 +746,7 @@ function Invoke-StatusCommand {
         
         if (Test-Path $prdFile) {
             $content = Get-Content $prdFile -Raw -Encoding UTF8
-            if ($content[0] -eq "`ufeff") { $content = $content.Substring(1) }
+            if ($content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
             $prd = $content | ConvertFrom-Json
             $status.total_stories = $prd.userStories.Count
             $status.completed_stories = ($prd.userStories | Where-Object { $_.passes -eq $true }).Count
@@ -766,7 +766,7 @@ function Invoke-StatusCommand {
     # PRD status
     if (Test-Path $prdFile) {
         $content = Get-Content $prdFile -Raw -Encoding UTF8
-        if ($content[0] -eq "`ufeff") { $content = $content.Substring(1) }
+        if ($content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
         $prd = $content | ConvertFrom-Json
         
         Write-Host "PRD: $($prd.project)" -ForegroundColor White
@@ -901,7 +901,7 @@ function Invoke-RunCommand {
             
             # Check PRD for completion
             $content = Get-Content $prdFile -Raw -Encoding UTF8
-            if ($content[0] -eq "`ufeff") { $content = $content.Substring(1) }
+            if ($content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
             $prd = $content | ConvertFrom-Json
             
             $incomplete = $prd.userStories | Where-Object { $_.passes -ne $true }

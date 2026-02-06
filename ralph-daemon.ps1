@@ -52,7 +52,7 @@ $ErrorActionPreference = "Stop"
 # CONFIGURATION
 # ==============================================================================
 
-$script:DaemonVersion = "2.1.0"
+$script:DaemonVersion = "2.2.2"
 $script:DaemonName = "RalphDaemon"
 $script:TaskName = "RalphHostDaemon"
 
@@ -71,7 +71,61 @@ $script:Config = @{
     MaxLogFiles = 5
     RestartOnFailure = $true
     MaxRetries = 3
+    MaxConsecutiveErrors = 5
+    RestartDelaySeconds = 30
+    MaxRestartDelaySeconds = 600  # 10 minutes max backoff
 }
+
+# ==============================================================================
+# POWERSHELL DETECTION (Cross-Platform)
+# ==============================================================================
+
+<#
+.SYNOPSIS
+    Detects the appropriate PowerShell executable.
+.DESCRIPTION
+    Tries PowerShell 7+ first (pwsh), falls back to PowerShell 5.1 (powershell).
+    Returns the full path to the executable.
+#>
+function Get-PowerShellPath {
+    $isWindows = $IsWindows -or ($env:OS -eq "Windows_NT")
+    
+    if ($isWindows) {
+        # Windows: Try pwsh.exe (PS 7+) first
+        $pwsh7 = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
+        if ($pwsh7) {
+            Write-DaemonLog "Using PowerShell 7: $($pwsh7.Source)" -Level "DEBUG"
+            return $pwsh7.Source
+        }
+        
+        # Fallback to Windows PowerShell 5.1
+        $ps5 = Get-Command "powershell.exe" -ErrorAction SilentlyContinue
+        if ($ps5) {
+            Write-DaemonLog "WARNING: Using PowerShell 5.1 - some features may be limited" -Level "WARN"
+            return $ps5.Source
+        }
+    }
+    else {
+        # Linux/Mac: Try pwsh first
+        $pwsh = Get-Command "pwsh" -ErrorAction SilentlyContinue
+        if ($pwsh) {
+            Write-DaemonLog "Using PowerShell 7: $($pwsh.Source)" -Level "DEBUG"
+            return $pwsh.Source
+        }
+        
+        # Fallback to system powershell
+        $ps = Get-Command "powershell" -ErrorAction SilentlyContinue
+        if ($ps) {
+            Write-DaemonLog "WARNING: Using system PowerShell - some features may be limited" -Level "WARN"
+            return $ps.Source
+        }
+    }
+    
+    throw "No PowerShell found. Please install PowerShell 7+ (winget install Microsoft.PowerShell)"
+}
+
+# Cache the PowerShell path
+$script:PwshPath = Get-PowerShellPath
 
 # Import core module
 $coreScript = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "ralph-core.ps1"
@@ -107,9 +161,9 @@ function Write-DaemonLog {
         }
     }
     
-    # Ensure log directory exists
+    # Ensure log directory exists (with race condition protection)
     if (-not (Test-Path $script:LogDir)) {
-        New-Item -ItemType Directory -Force -Path $script:LogDir | Out-Null
+        New-Item -ItemType Directory -Force -Path $script:LogDir -ErrorAction SilentlyContinue | Out-Null
     }
     
     # Write to log file
@@ -159,14 +213,130 @@ function Invoke-LogRotation {
 }
 
 # ==============================================================================
+# PRD OPERATIONS
+# ==============================================================================
+
+<#
+.SYNOPSIS
+    Reads the PRD file for bead completion verification.
+.DESCRIPTION
+    Loads prd.json with proper BOM handling for daemon verification.
+#>
+function Get-PrdForBead {
+    param([string]$BeadId)
+    
+    $prdPath = Join-Path $WorkspaceDir "prd.json"
+    
+    if (-not (Test-Path $prdPath)) {
+        return $null
+    }
+    
+    try {
+        $content = Get-Content -Path $prdPath -Raw -Encoding UTF8
+        
+        # Remove BOM if present
+        if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
+            $content = $content.Substring(1)
+        }
+        
+        return $content | ConvertFrom-Json
+    }
+    catch {
+        Write-DaemonLog "Error reading PRD for bead verification: $_" -Level "WARN"
+        return $null
+    }
+}
+
+# ==============================================================================
 # BEAD MANAGEMENT
 # ==============================================================================
+
+<#
+.SYNOPSIS
+    Initializes a bead object with all required schema fields.
+.DESCRIPTION
+    Ensures all core fields and ralph_meta properties exist with proper defaults.
+    This is critical for manually created beads or beads from older versions.
+.PARAMETER Bead
+    The bead object to initialize.
+.OUTPUTS
+    The initialized bead object with all required fields.
+#>
+function Initialize-BeadSchema {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Bead
+    )
+    
+    # Core fields with defaults
+    $coreFields = @{
+        "id" = if ($Bead.id) { $Bead.id } else { "unknown" }
+        "type" = if ($Bead.type) { $Bead.type } else { "prd-story" }
+        "status" = if ($Bead.status) { $Bead.status } else { "pending" }
+        "priority" = if ($Bead.priority) { $Bead.priority } else { 999 }
+        "title" = if ($Bead.title) { $Bead.title } else { "" }
+        "intent" = if ($Bead.intent) { $Bead.intent } else { "" }
+        "description" = if ($Bead.description) { $Bead.description } else { "" }
+        "created_at" = if ($Bead.created_at) { $Bead.created_at } else { (Get-Date -Format "o") }
+        "updated_at" = (Get-Date -Format "o")
+    }
+    
+    # Ensure core fields exist
+    foreach ($field in $coreFields.Keys) {
+        if (-not ($Bead.PSObject.Properties.Name -contains $field)) {
+            $Bead | Add-Member -NotePropertyName $field -NotePropertyValue $coreFields[$field] -Force
+        }
+    }
+    
+    # Ensure ralph_meta exists
+    if (-not $Bead.ralph_meta) {
+        $Bead | Add-Member -NotePropertyName "ralph_meta" -NotePropertyValue @{} -Force
+    }
+    
+    # Meta fields with defaults
+    $metaFields = @{
+        "attempt_count" = 0
+        "timeout_count" = 0
+        "stuck_count" = 0
+        "last_attempt" = $null
+        "last_error" = $null
+        "status_detail" = $null
+        "last_updated" = (Get-Date -Format "o")
+        "created_by" = "ralph-daemon"
+    }
+    
+    # Ensure meta fields exist
+    foreach ($field in $metaFields.Keys) {
+        if (-not ($Bead.ralph_meta.PSObject.Properties.Name -contains $field)) {
+            $Bead.ralph_meta | Add-Member -NotePropertyName $field -NotePropertyValue $metaFields[$field] -Force
+        }
+    }
+    
+    # Ensure nested objects exist
+    if (-not $Bead.dod) {
+        $Bead | Add-Member -NotePropertyName "dod" -NotePropertyValue @{
+            verifiers = @()
+            evidence_required = $true
+        } -Force
+    }
+    
+    if (-not $Bead.constraints) {
+        $Bead | Add-Member -NotePropertyName "constraints" -NotePropertyValue @{
+            max_iterations = 10
+            time_budget_minutes = 60
+            allowed_dirs = @()
+        } -Force
+    }
+    
+    return $Bead
+}
 
 <#
 .SYNOPSIS
     Loads a bead file with proper UTF-8 BOM handling.
 .DESCRIPTION
     Handles both BOM and non-BOM JSON files correctly.
+    Ensures all required bead properties exist (defensive initialization).
 #>
 function Get-Bead {
     param([string]$BeadId)
@@ -180,12 +350,17 @@ function Get-Bead {
     try {
         $content = Get-Content -Path $beadFile -Raw -Encoding UTF8
         
-        # Remove BOM if present (0xEF 0xBB 0xBF = `ufeff)
-        if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") {
+        # Remove BOM if present (0xEF 0xBB 0xBF = `u{feff})
+        if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
             $content = $content.Substring(1)
         }
         
-        return $content | ConvertFrom-Json
+        $bead = $content | ConvertFrom-Json
+        
+        # Initialize full schema (defensive programming for manually created beads)
+        $bead = Initialize-BeadSchema -Bead $bead
+        
+        return $bead
     }
     catch {
         Write-DaemonLog "Error reading bead $BeadId`: $_" -Level "ERROR"
@@ -198,6 +373,13 @@ function Get-Bead {
     Saves a bead file with proper encoding (no BOM).
 .DESCRIPTION
     Ensures all required fields exist and writes UTF-8 without BOM.
+    Uses atomic write with backup/restore for maximum safety against corruption.
+    
+    Write process:
+    1. Write to temp file
+    2. Backup existing file (if any)
+    3. Atomic move temp to target
+    4. Remove backup on success, restore on failure
 #>
 function Save-Bead {
     param(
@@ -205,36 +387,66 @@ function Save-Bead {
         [object]$Bead
     )
     
+    # Defensive: Ensure bead has an id
+    if (-not $Bead.id) {
+        Write-DaemonLog "Cannot save bead: missing 'id' property" -Level "ERROR"
+        return $false
+    }
+    
+    $beadFile = Join-Path $script:BeadsDir "$($Bead.id).json"
+    $tempFile = "$beadFile.tmp"
+    $backupFile = "$beadFile.bak"
+    
     try {
-        $beadFile = Join-Path $script:BeadsDir "$($Bead.id).json"
-        
         if (-not (Test-Path $script:BeadsDir)) {
-            New-Item -ItemType Directory -Force -Path $script:BeadsDir | Out-Null
+            New-Item -ItemType Directory -Force -Path $script:BeadsDir -ErrorAction SilentlyContinue | Out-Null
         }
         
-        # Ensure metadata exists
-        if (-not $Bead.ralph_meta) {
-            $Bead | Add-Member -NotePropertyName "ralph_meta" -NotePropertyValue @{} -Force
-        }
+        # Ensure full schema is initialized
+        $Bead = Initialize-BeadSchema -Bead $Bead
         
-        # Ensure updated_at exists
-        if (-not ($Bead.PSObject.Properties.Name -contains "updated_at")) {
-            $Bead | Add-Member -NotePropertyName "updated_at" -NotePropertyValue (Get-Date -Format "o") -Force
-        }
-        else {
-            $Bead.updated_at = Get-Date -Format "o"
-        }
-        
+        # Update timestamps
+        $Bead.updated_at = Get-Date -Format "o"
         $Bead.ralph_meta.last_updated = Get-Date -Format "o"
         
-        # Write with UTF8 no BOM
+        # Step 1: Write to temp file
         $json = $Bead | ConvertTo-Json -Depth 10
-        [System.IO.File]::WriteAllText($beadFile, $json, [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::WriteAllText($tempFile, $json, [System.Text.UTF8Encoding]::new($false))
+        
+        # Step 2: Backup existing file if it exists
+        if (Test-Path $beadFile) {
+            Copy-Item $beadFile $backupFile -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Step 3: Atomic move (temp -> target)
+        Move-Item $tempFile $beadFile -Force
+        
+        # Step 4: Remove backup on success
+        if (Test-Path $backupFile) {
+            Remove-Item $backupFile -ErrorAction SilentlyContinue
+        }
         
         return $true
     }
     catch {
         Write-DaemonLog "Error saving bead: $_" -Level "ERROR"
+        
+        # Restore from backup on failure
+        if (Test-Path $backupFile) {
+            try {
+                Copy-Item $backupFile $beadFile -Force
+                Write-DaemonLog "Restored bead from backup" -Level "WARN"
+            }
+            catch {
+                Write-DaemonLog "Failed to restore bead from backup: $_" -Level "ERROR"
+            }
+        }
+        
+        # Cleanup temp file if it exists
+        if (Test-Path $tempFile) {
+            Remove-Item $tempFile -ErrorAction SilentlyContinue
+        }
+        
         return $false
     }
 }
@@ -258,7 +470,7 @@ function Get-PendingBeads {
             $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8
             
             # Remove BOM if present
-            if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") {
+            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
                 $content = $content.Substring(1)
             }
             
@@ -300,7 +512,7 @@ function Reset-StuckBeads {
             $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8
             
             # Remove BOM if present
-            if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") {
+            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
                 $content = $content.Substring(1)
             }
             
@@ -360,8 +572,19 @@ function Invoke-Bead {
         [object]$Bead
     )
     
+    # Defensive: Ensure bead has required properties
+    if (-not $Bead.id) {
+        Write-DaemonLog "Bead is missing required 'id' property" -Level "ERROR"
+        return $false
+    }
+    
     $beadId = $Bead.id
     Write-DaemonLog "Starting bead: $beadId" -Level "INFO"
+    
+    # Defensive: Ensure status property exists
+    if (-not ($Bead.PSObject.Properties.Name -contains "status")) {
+        $Bead | Add-Member -NotePropertyName "status" -NotePropertyValue "pending" -Force
+    }
     
     # Update status to in_progress
     $Bead.status = "in_progress"
@@ -401,9 +624,9 @@ function Invoke-Bead {
     
     try {
         # Start process with full isolation
-        # Use pwsh (PowerShell 7) for consistency
+        # Use detected PowerShell path for cross-platform compatibility
         $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "pwsh.exe"
+        $psi.FileName = $script:PwshPath
         $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$ralphPath`" -MaxIterations 1"
         $psi.WorkingDirectory = $WorkspaceDir
         $psi.RedirectStandardOutput = $false
@@ -424,11 +647,14 @@ function Invoke-Bead {
         if (-not $completed) {
             Write-DaemonLog "TIMEOUT ($($script:Config.BeadTimeoutMinutes)m): $beadId - killing process" -Level "ERROR"
             
-            try {
-                Stop-Process -Id $process.Id -Force -ErrorAction Stop
-            }
-            catch {
-                Write-DaemonLog "Failed to kill process: $_" -Level "WARN"
+            # CRITICAL FIX: Check HasExited before attempting to kill (race condition protection)
+            if ($process -and -not $process.HasExited) {
+                try {
+                    Stop-Process -Id $process.Id -Force -ErrorAction Stop
+                }
+                catch {
+                    Write-DaemonLog "Failed to kill process: $_" -Level "WARN"
+                }
             }
             
             $Bead.status = "retry"
@@ -451,7 +677,30 @@ function Invoke-Bead {
         $updatedBead = Get-Bead -BeadId $beadId
         
         if ($updatedBead) {
+            # CRITICAL FIX: Check both bead status AND PRD for actual completion
+            # Ralph updates prd.json when stories are completed, so we verify against source of truth
+            $isActuallyComplete = $false
+            
+            # First check: bead status already marked as completed
             if ($updatedBead.status -eq "completed") {
+                $isActuallyComplete = $true
+            }
+            # Second check: exit code 0 AND verify against PRD that work is done
+            elseif ($exitCode -eq 0) {
+                $prd = Get-PrdForBead -BeadId $beadId
+                if ($prd) {
+                    # Check if this bead's story is marked complete in PRD
+                    $story = $prd.userStories | Where-Object { $_.id -eq $beadId } | Select-Object -First 1
+                    if ($story -and $story.passes -eq $true) {
+                        $isActuallyComplete = $true
+                        $updatedBead.status = "completed"
+                        Save-Bead -Bead $updatedBead
+                        Write-DaemonLog "Bead $beadId verified complete via PRD" -Level "DEBUG"
+                    }
+                }
+            }
+            
+            if ($isActuallyComplete) {
                 Write-DaemonLog "Bead $beadId completed successfully" -Level "SUCCESS"
                 return $true
             }
@@ -537,7 +786,7 @@ function Start-DaemonLoop {
     
     $iteration = 0
     $consecutiveErrors = 0
-    $maxConsecutiveErrors = 5
+    $restartDelaySeconds = $script:Config.RestartDelaySeconds
     
     while (-not $cancelRequested) {
         $iteration++
@@ -573,16 +822,38 @@ function Start-DaemonLoop {
                 }
             }
             
-            # Reset error counter on success
+            # Reset error counter and restart delay on success
             $consecutiveErrors = 0
+            $restartDelaySeconds = $script:Config.RestartDelaySeconds
         }
         catch {
             $consecutiveErrors++
-            Write-DaemonLog "Error in daemon loop: $_" -Level "ERROR"
+            Write-DaemonLog "Error in daemon loop (consecutive: $consecutiveErrors): $_" -Level "ERROR"
             
-            if ($consecutiveErrors -ge $maxConsecutiveErrors) {
-                Write-DaemonLog "Too many consecutive errors ($consecutiveErrors). Stopping daemon." -Level "ERROR"
-                break
+            if ($consecutiveErrors -ge $script:Config.MaxConsecutiveErrors) {
+                if ($script:Config.RestartOnFailure) {
+                    Write-DaemonLog "Max errors reached ($consecutiveErrors). Restarting daemon in $restartDelaySeconds seconds..." -Level "ERROR"
+                    
+                    # Wait with cancellation check
+                    $waitSeconds = $restartDelaySeconds
+                    while ($waitSeconds -gt 0 -and -not $cancelRequested) {
+                        Start-Sleep -Seconds 1
+                        $waitSeconds--
+                    }
+                    
+                    if (-not $cancelRequested) {
+                        # Exponential backoff (max 10 minutes)
+                        $restartDelaySeconds = [Math]::Min($restartDelaySeconds * 2, $script:Config.MaxRestartDelaySeconds)
+                        $consecutiveErrors = 0
+                        
+                        Write-DaemonLog "Daemon restarting... (backoff: $restartDelaySeconds seconds)" -Level "INFO"
+                        continue
+                    }
+                }
+                else {
+                    Write-DaemonLog "Too many consecutive errors ($consecutiveErrors). Stopping daemon." -Level "ERROR"
+                    break
+                }
             }
         }
         
@@ -695,7 +966,7 @@ function Get-DaemonStatus {
     if (Test-Path $beadsDir) {
         $pendingCount = (Get-ChildItem $beadsDir -Filter "*.json" -ErrorAction SilentlyContinue | Where-Object {
             $content = Get-Content $_.FullName -Raw -Encoding UTF8
-            if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") { $content = $content.Substring(1) }
+            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
             $bead = $content | ConvertFrom-Json
             $bead.status -eq "pending" -or $bead.status -eq "retry"
         }).Count

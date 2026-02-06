@@ -2,7 +2,7 @@
 
 This file contains technical information for AI agents working on the Ralph project itself.
 
-**Version**: 2.1.0  
+**Version**: 2.2.2  
 **Status**: Production-ready CI/CD Agent  
 **Requirement**: PowerShell 7.0+ (Install: `winget install Microsoft.PowerShell`)
 
@@ -13,6 +13,13 @@ This file contains technical information for AI agents working on the Ralph proj
 Ralph is a 24/7 autonomous CI/CD agent that runs Kimi Code CLI repeatedly until all PRD items are complete. This is a production-grade implementation with process isolation, automatic recovery, and comprehensive health monitoring.
 
 **Core Philosophy**: Like a CI/CD pipeline that never sleeps, Ralph continuously works through product requirements, verifying each change before moving to the next.
+
+**Key Design Principle**: The daemon is designed to be **robust, not fragile**. It handles:
+- Manually created beads with missing fields
+- Concurrent file access
+- PowerShell version differences
+- Transient failures with exponential backoff
+- Corrupted bead files with backup/restore
 
 ---
 
@@ -67,7 +74,10 @@ Ralph is a 24/7 autonomous CI/CD agent that runs Kimi Code CLI repeatedly until 
   - Automatic stuck bead detection (>2 hours)
   - Log rotation (10MB max, 5 files)
   - Windows Task Scheduler integration
-  - Retry logic (max 3 attempts)
+  - Retry logic (max 3 attempts per bead)
+  - **Auto-restart with exponential backoff** (daemon-level recovery)
+  - **Atomic bead writes** with backup/restore
+  - **Full bead schema validation** on load/save
 
 #### 4. ralph-health.ps1 (Health Monitoring)
 - **Purpose**: Diagnostics, troubleshooting, maintenance
@@ -93,7 +103,7 @@ Ralph is a 24/7 autonomous CI/CD agent that runs Kimi Code CLI repeatedly until 
 
 ### PowerShell 7 Requirement
 
-**Ralph v2.1.0 requires PowerShell 7.0+**. This provides:
+**Ralph v2.2.2 requires PowerShell 7.0+**. This provides:
 - Better cross-platform compatibility
 - Improved performance
 - Modern language features
@@ -112,7 +122,7 @@ winget install Microsoft.PowerShell
 
 ```powershell
 $content = Get-Content -Path $file -Raw -Encoding UTF8
-if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") {
+if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
     $content = $content.Substring(1)
 }
 $json = $content | ConvertFrom-Json
@@ -194,6 +204,116 @@ This accommodates:
 - Long Kimi invocations
 - Complex implementations
 - Context window building time
+
+---
+
+## Bead Schema (v2.2.2+)
+
+Beads are the core work units in Ralph. Each bead is a JSON file with a complete schema.
+
+### Core Fields
+
+```json
+{
+  "id": "US-001",
+  "type": "prd-story",
+  "status": "pending",
+  "priority": 1,
+  "title": "Story title",
+  "intent": "What to implement",
+  "description": "Detailed description",
+  "created_at": "2026-02-06T12:00:00Z",
+  "updated_at": "2026-02-06T12:00:00Z"
+}
+```
+
+### PRD Linkage
+
+```json
+{
+  "prd_reference": {
+    "story_id": "US-001",
+    "project": "MyApp",
+    "branch_name": "ralph/feature-branch"
+  }
+}
+```
+
+### Definition of Done (dod)
+
+```json
+{
+  "dod": {
+    "verifiers": [
+      {
+        "name": "Tests pass",
+        "command": "npm test",
+        "expect": { "exit_code": 0 },
+        "timeout_seconds": 120
+      }
+    ],
+    "evidence_required": true,
+    "acceptance_criteria": ["Criterion 1", "Criterion 2"]
+  }
+}
+```
+
+### Constraints
+
+```json
+{
+  "constraints": {
+    "max_iterations": 10,
+    "time_budget_minutes": 60,
+    "allowed_dirs": [],
+    "blocked_dirs": [".git", ".ralph", "node_modules"]
+  }
+}
+```
+
+### Ralph Metadata (ralph_meta)
+
+This section is for internal tracking and is automatically managed:
+
+```json
+{
+  "ralph_meta": {
+    "attempt_count": 0,
+    "timeout_count": 0,
+    "stuck_count": 0,
+    "last_attempt": null,
+    "last_error": null,
+    "status_detail": null,
+    "last_updated": "2026-02-06T12:00:00Z",
+    "created_by": "Convert-PrdToBeads",
+    "version": "2.2.2"
+  }
+}
+```
+
+### Creating Beads Manually
+
+If creating beads manually (not via `Convert-PrdToBeads`), you MUST include at minimum:
+
+```json
+{
+  "id": "CUSTOM-001",
+  "type": "prd-story",
+  "status": "pending",
+  "priority": 1,
+  "title": "Your task title",
+  "intent": "What to do",
+  "created_at": "2026-02-06T12:00:00Z",
+  "updated_at": "2026-02-06T12:00:00Z",
+  "ralph_meta": {
+    "attempt_count": 0,
+    "timeout_count": 0,
+    "stuck_count": 0
+  }
+}
+```
+
+The daemon's `Initialize-BeadSchema` function will populate missing fields automatically.
 
 ---
 

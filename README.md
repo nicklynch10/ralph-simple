@@ -5,6 +5,8 @@
 
 Ralph is a **24/7 autonomous CI/CD agent** that runs [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) repeatedly until all PRD (Product Requirements Document) items are complete. Designed for production-grade reliability with process isolation, automatic recovery, and comprehensive health monitoring.
 
+**v2.2.2 Highlights**: Exponential backoff restart, atomic bead writes with backup/restore, full bead schema validation, enhanced PRD verification.
+
 > **Core Philosophy**: Like a CI/CD pipeline that never sleeps, Ralph continuously works through your product requirements, verifying each change before moving to the next.
 
 Based on the [Ralph pattern](https://ghuntley.com/ralph) by Geoffrey Huntley.
@@ -417,6 +419,9 @@ kimi config set api_key <your-key>
 - **Stuck Bead Detection** - Auto-reset beads stuck >2 hours
 - **Log Rotation** - Prevents disk space issues
 - **Retry Logic** - Retries failed beads up to 3 times
+- **Auto-Restart** - Exponential backoff on daemon failures (30s -> 10min)
+- **Atomic Writes** - Bead files written with backup/restore safety
+- **Schema Validation** - Full bead schema initialization on load/save
 - **UTF-8 BOM Handling** - Proper encoding handling
 - **Graceful Shutdown** - Clean exit on Ctrl+C
 

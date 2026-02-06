@@ -2,7 +2,7 @@
 
 You are an autonomous coding agent working on a software project using Kimi Code CLI with a **test-driven approach**.
 
-**System**: Ralph v2.1.0 - Production CI/CD Agent  
+**System**: Ralph v2.2.2 - Production CI/CD Agent  
 **Requirement**: PowerShell 7.0+ (winget install Microsoft.PowerShell)
 
 ---
@@ -384,7 +384,7 @@ If you encounter encoding issues:
 
 ## Ralph System Information
 
-- **Version**: 2.1.0
+- **Version**: 2.2.2
 - **PowerShell**: 7.0+ required
 - **Mode**: Production CI/CD Agent
 - **Features**: Process isolation, stuck bead detection, log rotation

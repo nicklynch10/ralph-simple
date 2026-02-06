@@ -40,7 +40,7 @@ $ErrorActionPreference = "Stop"
 # CONFIGURATION
 # ==============================================================================
 
-$script:RalphVersion = "2.1.0"
+$script:RalphVersion = "2.2.2"
 $script:ConfigDir = Join-Path $WorkspaceDir ".ralph"
 $script:LogDir = Join-Path $script:ConfigDir "logs"
 $script:BeadsDir = Join-Path $script:ConfigDir "beads"
@@ -146,7 +146,7 @@ function Test-Configuration {
     if (Test-Path $prdPath) {
         try {
             $content = Get-Content -Path $prdPath -Raw -Encoding UTF8
-            if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") { $content = $content.Substring(1) }
+            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
             $prd = $content | ConvertFrom-Json
             
             $storyCount = ($prd.userStories | Measure-Object).Count
@@ -276,7 +276,7 @@ function Test-Beads {
     foreach ($file in $beadFiles) {
         try {
             $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8
-            if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") { $content = $content.Substring(1) }
+            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
             $bead = $content | ConvertFrom-Json
             
             $stats.Total++
@@ -376,7 +376,7 @@ function Repair-StuckBeads {
     foreach ($file in $beadFiles) {
         try {
             $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8
-            if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") { $content = $content.Substring(1) }
+            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
             $bead = $content | ConvertFrom-Json
             
             if ($bead.status -eq "in_progress" -and $bead.ralph_meta.last_attempt) {
