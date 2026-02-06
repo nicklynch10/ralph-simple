@@ -1,25 +1,65 @@
-# Ralph for Kimi Code CLI - Agent Instructions
-
-This file contains technical information for AI agents working on the Ralph project itself.
+# Ralph - 24/7 Autonomous CI/CD Agent
 
 **Version**: 2.2.2  
-**Status**: Production-ready CI/CD Agent  
+**Status**: Production-ready  
 **Requirement**: PowerShell 7.0+ (Install: `winget install Microsoft.PowerShell`)
+
+---
+
+## ⚠️ CRITICAL: Daemon-First Architecture
+
+**Ralph is designed to run continuously as a daemon, NOT as a cron job or scheduled task.**
+
+### The Wrong Way (Don't Do This)
+
+```bash
+# ❌ WRONG: Cron job approach
+crontab -e
+*/5 * * * * /path/to/ralph.sh
+
+# ❌ WRONG: Scheduled task with intervals
+# Task Scheduler: Run every 5 minutes
+
+# ❌ WRONG: Multiple manual starts
+./ralph.ps1 run
+./ralph.ps1 run  # Second instance conflicts!
+```
+
+**Why this is wrong:**
+- Ralph has built-in polling (30s interval)
+- Multiple instances conflict over beads
+- No state awareness between runs
+- Defeats exponential backoff recovery
+- Wastes resources on start/stop
+
+### The Right Way (Do This)
+
+```powershell
+# ✅ RIGHT: Start daemon once, runs forever
+.\ralph.ps1 daemon start
+
+# That's it. Ralph handles:
+# - Polling for new beads
+# - Processing each bead
+# - Retry logic with backoff
+# - Recovery from failures
+# - Running until all work is done
+```
 
 ---
 
 ## Project Overview
 
-Ralph is a 24/7 autonomous CI/CD agent that runs Kimi Code CLI repeatedly until all PRD items are complete. This is a production-grade implementation with process isolation, automatic recovery, and comprehensive health monitoring.
+Ralph is a **continuous 24/7 CI/CD agent** that processes work items (beads) until all PRD requirements are complete. It manages its own scheduling, retry logic, and recovery.
 
-**Core Philosophy**: Like a CI/CD pipeline that never sleeps, Ralph continuously works through product requirements, verifying each change before moving to the next.
+**Core Philosophy**: Start once, run forever. Like a CI/CD pipeline that never sleeps.
 
-**Key Design Principle**: The daemon is designed to be **robust, not fragile**. It handles:
-- Manually created beads with missing fields
-- Concurrent file access
-- PowerShell version differences
-- Transient failures with exponential backoff
-- Corrupted bead files with backup/restore
+**Key Design Principles**:
+- **Daemon-first**: Designed for continuous operation
+- **Self-healing**: Auto-restart on failure with exponential backoff
+- **Process isolation**: Each bead in separate process
+- **State-aware**: Tracks progress in PRD and bead files
+- **Robust, not fragile**: Handles malformed data, crashes, concurrent access
 
 ---
 

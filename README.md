@@ -1,19 +1,17 @@
-# Ralph for Kimi Code CLI - Production CI/CD Agent
+# Ralph - 24/7 Autonomous CI/CD Agent
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PowerShell 7](https://img.shields.io/badge/PowerShell-7+-blue.svg)](https://github.com/PowerShell/PowerShell)
 
-Ralph is a **24/7 autonomous CI/CD agent** that runs [Kimi Code CLI](https://github.com/moonshotai/kimi-cli) repeatedly until all PRD (Product Requirements Document) items are complete. Designed for production-grade reliability with process isolation, automatic recovery, and comprehensive health monitoring.
+**Ralph is a continuous, autonomous CI/CD agent** that runs 24/7, processing work items (beads) from your PRD until all requirements are complete. Think of it as a CI/CD pipeline that never sleeps.
 
-**v2.2.2 Highlights**: Exponential backoff restart, atomic bead writes with backup/restore, full bead schema validation, enhanced PRD verification.
+> **⚠️ IMPORTANT**: Ralph is designed to run **continuously as a daemon**, NOT as a cron job or scheduled task. It manages its own scheduling, retry logic, and recovery. Starting it multiple times or using cron defeats its self-healing architecture.
 
-> **Core Philosophy**: Like a CI/CD pipeline that never sleeps, Ralph continuously works through your product requirements, verifying each change before moving to the next.
-
-Based on the [Ralph pattern](https://ghuntley.com/ralph) by Geoffrey Huntley.
+**Core Design**: Start once, run forever. Ralph automatically picks up the next bead, processes it, and moves on. No external scheduling needed.
 
 ---
 
-## ⚡ Quick Start (3 Steps)
+## Quick Start (Production Setup)
 
 ### 1. Install Prerequisites
 
@@ -29,381 +27,197 @@ kimi config set api_key <your-key>
 winget install Git.Git
 ```
 
-### 2. Initialize Workspace
+### 2. Initialize & Start
 
 ```powershell
-# Clone Ralph
+# Clone and setup
 git clone https://github.com/nicklynch10/ralph-simple.git
-
-# Copy to your project
 copy ralph-simple\*.ps1 C:\path\to\your\project\
-
-# Initialize
 cd C:\path\to\your\project
-.\ralph.ps1 init
-```
 
-### 3. Run Ralph
-
-```powershell
-# Check everything is ready
-.\ralph.ps1 doctor
-
-# Run interactively
-.\ralph.ps1 run
-
-# Or start 24/7 daemon
-.\ralph.ps1 daemon start
-```
-
----
-
-## 📖 Command Reference
-
-### Core Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `init` | Initialize workspace | `ralph init [--template node-react]` |
-| `doctor` | Check/fix issues | `ralph doctor [--fix]` |
-| `bead` | Create task bead | `ralph bead "Add login" [--verifier "npm test"]` |
-| `run` | Run main loop | `ralph run [iterations]` |
-| `daemon` | Manage daemon | `ralph daemon <start\|stop\|status\|logs>` |
-| `status` | Show status | `ralph status [--json]` |
-| `logs` | View logs | `ralph logs [lines]` |
-
-### Detailed Usage
-
-#### `ralph init` - Initialize Workspace
-
-```powershell
-# Basic initialization
-.\ralph.ps1 init
-
-# Initialize with template
-.\ralph.ps1 init --template node-react
-
-# Initialize in specific directory
-.\ralph.ps1 init ./my-project
-```
-
-**Creates:**
-- `.ralph/` - Configuration directory
-- `prd.json` - Product requirements template
-- `KIMI.md` - Agent instructions
-- `progress.txt` - Progress log
-- `.gitignore` - Git ignore file
-
-**Templates:**
-- `node-react` - React + TypeScript + Vite
-- `node-next` - Next.js application
-- `python-flask` - Python Flask API
-- `python-django` - Python Django app
-- `go-cli` - Go CLI tool
-- `generic` - Minimal setup (default)
-
-#### `ralph doctor` - Diagnostics
-
-```powershell
-# Check health
-.\ralph.ps1 doctor
-
-# Check and auto-fix issues
-.\ralph.ps1 doctor --fix
-```
-
-**Checks:**
-- PowerShell 7+ installed
-- Kimi CLI installed and authenticated
-- Git installed and configured
-- Workspace structure valid
-- PRD JSON valid
-- Daemon status
-
-#### `ralph bead` - Create Task
-
-```powershell
-# Create simple bead
-.\ralph.ps1 bead "Add user login page"
-
-# Create bead with custom verifier
-.\ralph.ps1 bead "Fix API bug" --verifier "npm test"
-
-# Create bead with timeout
-.\ralph.ps1 bead "Complex feature" --verifier "npm run e2e" --timeout 3600
-```
-
-**Auto-detects project type** and adds appropriate verifiers:
-- Node.js: `npm run build`, `npm test`
-- Go: `go build`, `go test`
-- Python: `python -m py_compile`
-
-#### `ralph run` - Run Main Loop
-
-```powershell
-# Run 10 iterations (default)
-.\ralph.ps1 run
-
-# Run specific iterations
-.\ralph.ps1 run 20
-
-# Run once (for daemon)
-.\ralph.ps1 run 1
-```
-
-#### `ralph daemon` - Manage Daemon
-
-```powershell
-# Start daemon
-.\ralph.ps1 daemon start
-
-# Check status
-.\ralph.ps1 daemon status
-
-# View logs
-.\ralph.ps1 daemon logs
-
-# Stop daemon
-.\ralph.ps1 daemon stop
-```
-
-#### `ralph status` - Show Status
-
-```powershell
-# Human-readable status
-.\ralph.ps1 status
-
-# JSON output for automation
-.\ralph.ps1 status --json
-```
-
-#### `ralph logs` - View Logs
-
-```powershell
-# Show last 20 lines
-.\ralph.ps1 logs
-
-# Show last 50 lines
-.\ralph.ps1 logs 50
-```
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Ralph Command Interface                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ralph init ──────┐                                                      │
-│  ralph doctor ────┤                                                      │
-│  ralph bead ──────┼──► ralph-core.ps1 (shared functions)                │
-│  ralph run ───────┤       ├──► Kimi CLI                                 │
-│  ralph daemon ────┤       ├──► Git                                      │
-│  ralph status ────┘       └──► prd.json                                 │
-│  ralph logs                                                              │
-│                                                                          │
-│  Memory: git history + prd.json + progress.txt + bead files             │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### File Structure
-
-```
-.
-├── ralph.ps1              # Main command interface
-├── ralph-core.ps1         # Shared functions
-├── ralph-daemon.ps1       # Background daemon
-├── install-service.ps1    # Windows Service installer
-├── ralph.sh               # Linux/Mac version
-├── KIMI.md                # Agent instructions
-├── prd.json               # Your product requirements
-├── progress.txt           # Execution log
-└── .ralph/
-    ├── logs/              # Log files
-    └── beads/             # Task beads (daemon mode)
-```
-
----
-
-## 🚀 Running Modes
-
-### 1. Interactive Mode (`ralph run`)
-
-Best for: Development, testing, one-off runs
-
-```powershell
-# Run with default 10 iterations
-.\ralph.ps1 run
-
-# Run with specific iteration count
-.\ralph.ps1 run 20
-```
-
-**Characteristics:**
-- Runs in foreground
-- Real-time output
-- Stops when terminal closes
-- Good for development
-
-### 2. Daemon Mode (`ralph daemon`)
-
-Best for: 24/7 autonomous operation
-
-```powershell
-# Start daemon
-.\ralph.ps1 daemon start
-
-# Check status
-.\ralph.ps1 daemon status
-
-# View logs
-.\ralph.ps1 daemon logs
-
-# Stop daemon
-.\ralph.ps1 daemon stop
-```
-
-**Characteristics:**
-- Runs continuously in background
-- Survives terminal closure
-- Process isolation per bead
-- Automatic stuck bead recovery
-- Log rotation
-- 2-hour timeout per bead
-
-### 3. Windows Service Mode (`install-service.ps1`)
-
-Best for: True 24/7 operation, system-level service
-
-```powershell
-# Install as Windows Service (requires Admin)
-.\install-service.ps1 -Install
-
-# Check status
-.\install-service.ps1 -Status
-
-# Restart service
-.\install-service.ps1 -Restart
-
-# Remove service
-.\install-service.ps1 -Uninstall
-```
-
-**Characteristics:**
-- Runs as SYSTEM (before user login)
-- Starts automatically on boot
-- Automatic restart on failure
-- Logs to Windows Event Log
-- Most reliable for production
-
----
-
-## 📊 Health Monitoring
-
-### Quick Status Check
-
-```powershell
-# Full diagnostic
-.\ralph.ps1 doctor
-
-# Quick status only
-.\ralph.ps1 status
-
-# View logs
-.\ralph.ps1 logs
-```
-
-### Sample Output
-
-```
-Ralph Diagnostics
-=================
-
-Checking prerequisites...
-✓ PowerShell 7.4.0
-✓ Kimi CLI (v1.2.3)
-✓ Git installed
-
-Checking workspace structure...
-✓ prd.json exists
-✓ KIMI.md exists
-✓ .ralph/ directory exists
-
-Checking daemon status...
-✓ Daemon running (PID: 12345)
-
-=================
-✓ All checks passed! Ralph is ready.
-```
-
----
-
-## 🔧 Troubleshooting
-
-### PowerShell 7 Not Found
-
-```powershell
-# Install PowerShell 7
-winget install Microsoft.PowerShell
-
-# Or download from GitHub
-https://github.com/PowerShell/PowerShell/releases
-```
-
-### Kimi CLI Not Found
-
-```powershell
-# Install
-pip install kimi-cli
-
-# Authenticate
-kimi config set api_key <your-key>
-```
-
-### Workspace Not Initialized
-
-```powershell
 # Initialize workspace
 .\ralph.ps1 init
 
-# Check health
-.\ralph.ps1 doctor
+# Convert PRD to beads (one-time setup)
+$ beads = Convert-PrdToBeads
+
+# Start 24/7 daemon (this is the main way to run Ralph)
+.\ralph.ps1 daemon start
 ```
 
-### Daemon Won't Start
+That's it. Ralph now runs continuously, processing beads until all work is complete.
 
-```powershell
-# Check for issues
-.\ralph.ps1 doctor --fix
+---
 
-# Try running in foreground
-.\ralph.ps1 run 1
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Ralph Daemon (24/7)                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │  Poll for   │───▶│ Pick highest │───▶│  Process    │         │
+│  │  beads      │    │ priority     │    │  bead       │         │
+│  └─────────────┘    └─────────────┘    └─────────────┘         │
+│       ▲                                        │                 │
+│       │                                        ▼                 │
+│       │                               ┌─────────────┐           │
+│       │                               │ Update PRD  │           │
+│       │                               │ on complete │           │
+│       │                               └─────────────┘           │
+│       │                                        │                 │
+│       └────────────────────────────────────────┘                 │
+│                                                                  │
+│  Features:                                                       │
+│  • Self-healing: Auto-restart on failure (exponential backoff)  │
+│  • Process isolation: Each bead in separate process             │
+│  • Stuck detection: Auto-reset beads stuck >2 hours             │
+│  • Atomic writes: No corruption on crashes                      │
+│  • No cron needed: Built-in polling loop                        │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ⚙️ Configuration
+## Architecture Philosophy
 
-### PRD Format
+### ❌ DON'T: Cron/Scheduled Tasks
+
+```bash
+# WRONG - Don't do this
+crontab -e
+# */5 * * * * /path/to/ralph.sh  # This defeats the purpose!
+```
+
+Problems with cron approach:
+- Multiple instances can conflict
+- No state awareness between runs
+- No stuck bead detection
+- No exponential backoff on failures
+- Wastes resources starting/stopping
+
+### ✅ DO: Start Once, Run Forever
+
+```powershell
+# RIGHT - Start the daemon once
+.\ralph.ps1 daemon start
+
+# It will:
+# - Poll for beads every 30 seconds
+# - Process each bead to completion
+# - Auto-restart on failure
+# - Run until all work is done
+```
+
+---
+
+## Commands
+
+### Essential Commands
+
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `ralph init` | Initialize workspace | First time setup |
+| `ralph daemon start` | **Start 24/7 daemon** | **Primary way to run** |
+| `ralph daemon status` | Check if running | Monitoring |
+| `ralph daemon logs` | View recent activity | Debugging |
+| `ralph daemon stop` | Stop the daemon | Maintenance |
+
+### Development Commands
+
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `ralph run` | Run one iteration | Testing/debugging |
+| `ralph doctor` | Check health | Troubleshooting |
+| `ralph status` | View progress | Quick check |
+
+---
+
+## Running Modes Explained
+
+### Production Mode: Daemon (Recommended)
+
+```powershell
+# Start once, runs forever
+.\ralph.ps1 daemon start
+
+# Check status anytime
+.\ralph.ps1 daemon status
+
+# View logs
+.\ralph.ps1 daemon logs
+```
+
+**Characteristics:**
+- ✅ Continuous 24/7 operation
+- ✅ Self-healing with exponential backoff
+- ✅ Process isolation per bead
+- ✅ Automatic stuck bead recovery
+- ✅ Log rotation
+- ✅ Survives terminal closure
+
+### Development Mode: Interactive
+
+```powershell
+# Run single iteration for testing
+.\ralph.ps1 run 1
+```
+
+**Use only for:**
+- Initial setup testing
+- Debugging issues
+- Verifying configuration
+
+**Not for production** - stops when terminal closes.
+
+### Windows Service Mode (Enterprise)
+
+```powershell
+# Run as SYSTEM service (most robust)
+.\install-service.ps1 -Install
+```
+
+**Use when:**
+- Machine reboots automatically
+- Must run before user login
+- Enterprise environment
+
+---
+
+## File Structure
+
+```
+.
+├── ralph.ps1              # Command interface
+├── ralph-core.ps1         # Core functions
+├── ralph-daemon.ps1       # 24/7 daemon (heart of Ralph)
+├── install-service.ps1    # Windows Service installer
+├── KIMI.md                # Agent instructions
+├── prd.json               # Your requirements
+└── .ralph/
+    ├── logs/              # Daemon logs
+    └── beads/             # Work items (auto-generated)
+```
+
+---
+
+## Workflow
+
+### 1. Define Work (One-time)
+
+Create `prd.json` with your user stories:
 
 ```json
 {
   "project": "MyApp",
-  "branchName": "ralph/feature-branch",
-  "description": "Feature description",
+  "branchName": "ralph/feature",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add user authentication",
-      "description": "As a user, I want to log in...",
-      "acceptanceCriteria": [
-        "Login form validates email",
-        "Password must be 8+ characters",
-        "Tests pass"
-      ],
+      "title": "Add login",
+      "description": "User can log in",
       "priority": 1,
       "passes": false
     }
@@ -411,41 +225,174 @@ kimi config set api_key <your-key>
 }
 ```
 
+### 2. Convert to Beads (One-time)
+
+```powershell
+# Import core module
+. .\ralph-core.ps1
+
+# Convert PRD stories to beads
+Convert-PrdToBeads
+```
+
+### 3. Start Daemon (Run once, runs forever)
+
+```powershell
+.\ralph.ps1 daemon start
+```
+
+Ralph will:
+1. Pick the highest priority pending bead
+2. Process it (invoke Kimi, run verifiers)
+3. Mark complete in PRD
+4. Pick the next bead
+5. Repeat until all done
+
+### 4. Monitor (Optional)
+
+```powershell
+# Check progress
+.\ralph.ps1 status
+
+# Watch logs
+.\ralph.ps1 daemon logs
+```
+
 ---
 
-## 🛡️ Reliability Features
+## Reliability Features
 
-- **Process Isolation** - Each bead runs in separate process
-- **Stuck Bead Detection** - Auto-reset beads stuck >2 hours
-- **Log Rotation** - Prevents disk space issues
-- **Retry Logic** - Retries failed beads up to 3 times
-- **Auto-Restart** - Exponential backoff on daemon failures (30s -> 10min)
-- **Atomic Writes** - Bead files written with backup/restore safety
-- **Schema Validation** - Full bead schema initialization on load/save
-- **UTF-8 BOM Handling** - Proper encoding handling
-- **Graceful Shutdown** - Clean exit on Ctrl+C
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Areas for improvement:
-
-- Additional templates
-- MCP server integrations
-- CI/CD workflow templates
-- Language/framework support
+| Feature | Purpose |
+|---------|---------|
+| **Process Isolation** | Each bead runs in separate process - prevents memory leaks |
+| **Auto-Restart** | Exponential backoff (30s → 10min) on failures |
+| **Stuck Detection** | Auto-reset beads stuck >2 hours |
+| **Atomic Writes** | Temp + backup + move pattern - no corruption |
+| **Schema Validation** | Auto-fixes malformed beads |
+| **Log Rotation** | Prevents disk space issues |
+| **Graceful Shutdown** | Clean exit on Ctrl+C |
 
 ---
 
-## 📝 Credits
+## Common Mistakes
+
+### ❌ Mistake 1: Cron Job
+
+```bash
+# DON'T DO THIS
+crontab -e
+*/5 * * * * /path/to/ralph.sh
+```
+
+**Why**: Ralph has its own scheduling. Cron creates conflicts.
+
+### ❌ Mistake 2: Multiple Instances
+
+```powershell
+# DON'T DO THIS
+# Terminal 1:
+.\ralph.ps1 daemon start
+
+# Terminal 2:
+.\ralph.ps1 daemon start  # Conflict!
+```
+
+**Why**: Check `ralph daemon status` first.
+
+### ❌ Mistake 3: Scheduled Task with Intervals
+
+```powershell
+# DON'T DO THIS
+# Task Scheduler: Run every 5 minutes
+```
+
+**Why**: Ralph runs continuously. Use `install-service.ps1` for boot-time start.
+
+### ✅ Correct Approach
+
+```powershell
+# Start once
+.\ralph.ps1 daemon start
+
+# That's it. It manages itself.
+```
+
+---
+
+## Troubleshooting
+
+### Check if Running
+
+```powershell
+.\ralph.ps1 daemon status
+```
+
+### View Logs
+
+```powershell
+# Recent activity
+.\ralph.ps1 daemon logs
+
+# Full log
+Get-Content .ralph\logs\ralph-daemon.log -Wait
+```
+
+### Health Check
+
+```powershell
+.\ralph.ps1 doctor
+```
+
+### Reset Stuck Beads
+
+```powershell
+.\ralph-health.ps1 -ResetStuck
+```
+
+---
+
+## Configuration
+
+### PRD Format
+
+```json
+{
+  "project": "MyApp",
+  "branchName": "ralph/feature-branch",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add feature",
+      "description": "As a user...",
+      "acceptanceCriteria": ["Test passes"],
+      "priority": 1,
+      "passes": false
+    }
+  ]
+}
+```
+
+### Daemon Configuration
+
+Edit `ralph-daemon.ps1`:
+
+```powershell
+$script:Config = @{
+    PollIntervalSeconds = 30      # How often to check for work
+    BeadTimeoutMinutes = 120      # Max time per bead
+    MaxRetries = 3                # Retry failed beads
+    RestartOnFailure = $true      # Auto-restart on error
+    MaxLogSizeMB = 10             # Log rotation size
+}
+```
+
+---
+
+## Credits
 
 - Original Ralph pattern by [Geoffrey Huntley](https://ghuntley.com/ralph)
-- Original Ralph implementation by [Snarktank](https://github.com/snarktank/ralph)
-- Production-grade improvements by [nicklynch10](https://github.com/nicklynch10)
+- Production-grade implementation by [nicklynch10](https://github.com/nicklynch10)
 
----
-
-## 📄 License
+## License
 
 MIT License - see LICENSE file.
