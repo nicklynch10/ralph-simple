@@ -1,6 +1,9 @@
-# Ralph Agent Instructions for Kimi Code CLI - Test-Driven Edition
+# Ralph Agent Instructions for Kimi Code CLI
 
 You are an autonomous coding agent working on a software project using Kimi Code CLI with a **test-driven approach**.
+
+**System**: Ralph v2.1.0 - Production CI/CD Agent  
+**Requirement**: PowerShell 7.0+ (winget install Microsoft.PowerShell)
 
 ---
 
@@ -94,14 +97,14 @@ Story 3: Connect form → Implement + Batch browser test all three
 ### Step 1: Pre-Implementation (TDD)
 
 Check for existing tests:
-```bash
+```powershell
 # Look for test files for this story
-ls tests/**/*US-001* 2>/dev/null
-ls e2e/**/*us-001* 2>/dev/null
+Get-ChildItem -Recurse -Filter "*US-001*" -Path tests/
+Get-ChildItem -Recurse -Filter "*us-001*" -Path e2e/
 ```
 
 If tests exist:
-```bash
+```powershell
 # Run tests - they should FAIL (TDD)
 npm test -- US-001
 # or
@@ -116,7 +119,7 @@ Implement the story as usual.
 
 ### Step 3: Automated Test Verification
 
-```bash
+```powershell
 # Run tests again - should PASS
 npm test -- US-001
 npx playwright test us-001
@@ -158,7 +161,7 @@ Execute browser test using MCP tools:
 APPEND to progress.txt (never replace):
 
 ```markdown
-## [Date/Time] - [Story ID]
+## [Date/Time] - [Story ID] - [Story Title]
 
 ### Implementation
 - What was implemented
@@ -229,12 +232,12 @@ Before committing, check for AGENTS.md updates AND test documentation:
 ### Prerequisites
 
 Ensure dev server is running:
-```bash
+```powershell
 # Check if server is up
-curl http://localhost:3000/health || echo "Server not running"
+Invoke-RestMethod http://localhost:3000/health -ErrorAction SilentlyContinue
 
 # Start if needed
-npm run dev &
+npm run dev
 ```
 
 ### Test Execution
@@ -296,7 +299,7 @@ After completing a user story:
 
 1. Check if ALL stories have `passes: true`
 2. If yes, run FULL TEST SUITE:
-   ```bash
+   ```powershell
    npm run test:all
    npx playwright test
    ```
@@ -328,3 +331,60 @@ If there are still stories with `passes: false`, end normally.
 - Use data-testid selectors when available (most reliable)
 - Save screenshots to tests/screenshots/ for documentation
 - Use Shell tool for running npm test, playwright, etc.
+
+---
+
+## Troubleshooting
+
+### Kimi CLI Not Responding
+
+If Kimi appears to hang:
+1. Check your internet connection
+2. Verify Kimi CLI is installed: `kimi --version`
+3. Check if API key is set: `kimi config get api_key`
+
+### Tests Failing Unexpectedly
+
+If tests fail after implementation:
+1. Re-read the test to understand expectations
+2. Check if dev server is running (for browser tests)
+3. Verify selectors are correct (use data-testid)
+4. Add wait times for async operations
+
+### Context Running Low
+
+If you see context warnings:
+1. Skip browser testing for this story
+2. Document: "Context low - manual verification needed"
+3. Focus on automated tests only
+4. Let the next iteration handle browser verification
+
+### Git Issues
+
+If git commit fails:
+1. Check git config: `git config user.name` and `git config user.email`
+2. Check for merge conflicts: `git status`
+3. Stage files manually if needed: `git add -A`
+
+---
+
+## UTF-8 Encoding Notes
+
+Ralph handles UTF-8 encoding properly. When reading/writing files:
+- JSON files are read with BOM handling
+- Log files use UTF-8 encoding
+- Special characters in story titles are preserved
+
+If you encounter encoding issues:
+1. Check file encoding
+2. Re-save files as UTF-8 without BOM if needed
+3. Report encoding issues in progress.txt
+
+---
+
+## Ralph System Information
+
+- **Version**: 2.1.0
+- **PowerShell**: 7.0+ required
+- **Mode**: Production CI/CD Agent
+- **Features**: Process isolation, stuck bead detection, log rotation

@@ -1,79 +1,492 @@
 # Ralph for Kimi Code CLI - Agent Instructions
 
-This file contains information for AI agents working on the Ralph project itself.
+This file contains technical information for AI agents working on the Ralph project itself.
+
+**Version**: 2.1.0  
+**Status**: Production-ready CI/CD Agent  
+**Requirement**: PowerShell 7.0+ (Install: `winget install Microsoft.PowerShell`)
+
+---
 
 ## Project Overview
 
-Ralph is an autonomous AI agent loop that runs Kimi Code CLI repeatedly until all PRD items are complete. This is a port of the original Ralph project from Amp/Claude Code to Kimi Code CLI.
+Ralph is a 24/7 autonomous CI/CD agent that runs Kimi Code CLI repeatedly until all PRD items are complete. This is a production-grade implementation with process isolation, automatic recovery, and comprehensive health monitoring.
 
-## Project Structure
+**Core Philosophy**: Like a CI/CD pipeline that never sleeps, Ralph continuously works through product requirements, verifying each change before moving to the next.
+
+---
+
+## Architecture
+
+### File Structure
 
 ```
 .
-├── ralph.ps1           # Main PowerShell script that runs the loop
-├── KIMI.md             # Prompt template for Kimi Code CLI
-├── prd.json.example    # Example PRD format
-├── README.md           # Documentation
-├── AGENTS.md           # This file
-└── skills/
-    ├── prd/            # Skill for generating PRDs
+├── ralph.ps1              # Main entry point (dispatcher)
+├── ralph-core.ps1         # Core functions module (reusable)
+├── ralph-daemon.ps1       # Production daemon for 24/7 operation
+├── ralph-health.ps1       # Health monitoring and diagnostics
+├── install-service.ps1    # Windows Service installer (NSSM)
+├── ralph.sh               # Linux/Mac version
+├── KIMI.md                # Prompt template for Kimi Code CLI
+├── prd.json.example       # Example PRD format
+├── test-plan.json.example # Example test plan format
+├── README.md              # User documentation
+├── AGENTS.md              # This file
+├── IMPROVEMENTS.md        # Planned improvements
+└── skills/                # Kimi skills
+    ├── prd/
     │   └── SKILL.md
-    └── ralph/          # Skill for converting PRDs to JSON
+    └── ralph/
         └── SKILL.md
 ```
 
-## Key Differences from Original Ralph
+### Key Components
 
-| Feature | Original Ralph (Amp/Claude) | Ralph for Kimi |
-|---------|------------------------------|----------------|
-| Script | `ralph.sh` (Bash) | `ralph.ps1` (PowerShell) |
-| Prompt | `prompt.md` / `CLAUDE.md` | `KIMI.md` |
-| Auto-approve | `--dangerously-allow-all` / `--dangerously-skip-permissions` | `--print` mode (implicit) |
-| Skills dir | `~/.amp/skills/` or `~/.claude/skills/` | `~/.kimi/skills/` or `~/.config/agents/skills/` |
+#### 1. ralph.ps1 (Main Entry Point)
+- **Purpose**: Dispatcher that routes to appropriate sub-command
+- **Usage**: `.\ralph.ps1 [iterations] [-Daemon] [-Health] [-Status]`
+- **Design**: Thin wrapper that delegates to specialized scripts
 
-## How Ralph Works
+#### 2. ralph-core.ps1 (Core Module)
+- **Purpose**: Reusable functions for JSON, logging, git, PRD operations
+- **Usage**: Import with `. ./ralph-core.ps1` or `Import-Module`
+- **Key Functions**:
+  - `Read-RalphJson` / `Write-RalphJson` - UTF-8 BOM safe JSON
+  - `Write-RalphLog` - Centralized logging with file output
+  - `Get-RalphPrd` / `Update-StoryStatus` - PRD operations
+  - `Invoke-RalphGitCommit` - Automated git commits
+  - `Invoke-RalphKimi` - Kimi CLI invocation with timeout
+  - `Test-RalphVerifier` - Verifier execution with deadlock prevention
+  - `Start-RalphLoop` - Main automation loop
 
-1. **Loop**: `ralph.ps1` runs a loop for N iterations
-2. **Spawn**: Each iteration spawns Kimi with `KIMI.md` as the prompt via stdin
-3. **Execute**: Kimi reads `prd.json`, picks a task, implements it
-4. **Commit**: Changes are committed to git
-5. **Update**: `prd.json` and `progress.txt` are updated
-6. **Check**: Script checks for `<promise>COMPLETE</promise>` signal
+#### 3. ralph-daemon.ps1 (Production Daemon)
+- **Purpose**: 24/7 autonomous operation with process isolation
+- **Key Features**:
+  - Separate process per bead (2-hour timeout)
+  - Automatic stuck bead detection (>2 hours)
+  - Log rotation (10MB max, 5 files)
+  - Windows Task Scheduler integration
+  - Retry logic (max 3 attempts)
 
-## Kimi CLI Specifics
+#### 4. ralph-health.ps1 (Health Monitoring)
+- **Purpose**: Diagnostics, troubleshooting, maintenance
+- **Usage**: `.\ralph.ps1 -Health` or `.\ralph.ps1 -Status`
+- **Features**:
+  - Prerequisite checks (Kimi, Git, PowerShell 7)
+  - PRD validation
+  - Daemon status
+  - Bead status with stuck detection
+  - Auto-fix mode (`-Fix`)
 
-- Use `--print` for non-interactive mode (auto-approves all actions)
-- Use `--final-message-only` for clean output
-- Kimi reads the prompt from stdin when piped
-- Skills are discovered from `~/.kimi/skills/` or project `.kimi/skills/`
+#### 5. install-service.ps1 (Windows Service)
+- **Purpose**: Install Ralph as a true Windows Service using NSSM
+- **Advantages over Task Scheduler**:
+  - Runs as SYSTEM (before user login)
+  - Automatic restart on failure
+  - Proper service management (start/stop/restart)
+  - Logs to Windows Event Log
+
+---
+
+## Critical Implementation Details
+
+### PowerShell 7 Requirement
+
+**Ralph v2.1.0 requires PowerShell 7.0+**. This provides:
+- Better cross-platform compatibility
+- Improved performance
+- Modern language features
+- Consistent behavior across systems
+
+**Install PowerShell 7**:
+```powershell
+winget install Microsoft.PowerShell
+```
+
+### UTF-8 BOM Handling
+
+**Problem**: PowerShell's `ConvertFrom-Json` fails on files with UTF-8 BOM.
+
+**Solution**: Always use `-Raw -Encoding UTF8` and strip BOM:
+
+```powershell
+$content = Get-Content -Path $file -Raw -Encoding UTF8
+if ($content.Length -gt 0 -and $content[0] -eq "`ufeff") {
+    $content = $content.Substring(1)
+}
+$json = $content | ConvertFrom-Json
+```
+
+**Writing JSON (no BOM)**:
+```powershell
+$json = $data | ConvertTo-Json -Depth 10
+[System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))
+```
+
+### Ctrl+C Handling
+
+**Problem**: `trap` catches ALL exceptions, not just Ctrl+C.
+
+**Solution**: Use `Console.CancelKeyPress` event:
+
+```powershell
+$cancelHandler = {
+    param([object]$sender, [System.ConsoleCancelEventArgs]$e)
+    $e.Cancel = $true
+    $script:CancelRequested = $true
+    Write-RalphLog "Shutdown requested" -Level "WARN"
+}
+[Console]::add_CancelKeyPress($cancelHandler)
+```
+
+### Process Isolation (Daemon)
+
+**Why**: Prevents memory leaks, file handle exhaustion, cascading failures.
+
+**Implementation**:
+```powershell
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = "pwsh.exe"  # PowerShell 7
+$psi.Arguments = "-File ralph.ps1 -MaxIterations 1"
+$psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+$psi.UseShellExecute = $true  # Required for WindowStyle
+
+$process = [System.Diagnostics.Process]::Start($psi)
+$completed = $process.WaitForExit($timeoutMs)
+
+if (-not $completed) {
+    Stop-Process -Id $process.Id -Force
+}
+```
+
+### Pipeline Deadlock Prevention
+
+**Problem**: PowerShell pipeline buffer fills and blocks child processes.
+
+**Solution**: Use file-based redirection:
+
+```powershell
+# BAD - Can deadlock
+$output = & kimi --print 2>&1
+
+# GOOD - File based
+$stdoutFile = ".ralph/.verifier-stdout-$guid.txt"
+$stderrFile = ".ralph/.verifier-stderr-$guid.txt"
+
+$psi.RedirectStandardOutput = $false
+$psi.RedirectStandardError = $false
+$process = [System.Diagnostics.Process]::Start($psi)
+$process.WaitForExit($timeout * 1000)
+
+$stdout = Get-Content $stdoutFile -Raw
+```
+
+### Verifier Timeout
+
+**Default timeout increased to 20 minutes** for Kimi sessions:
+
+```powershell
+$script:RalphConfig.DefaultVerifierTimeout = 1200  # 20 minutes
+```
+
+This accommodates:
+- Long Kimi invocations
+- Complex implementations
+- Context window building time
+
+---
 
 ## Testing Changes
 
-When modifying the Ralph script:
+### Manual Testing Checklist
 
-1. Test with a sample `prd.json`
-2. Ensure proper error handling
-3. Verify git operations work correctly
-4. Check that iteration limits are respected
+When modifying Ralph scripts:
 
-## Common Tasks
+1. **PowerShell 7 Compatibility**
+   ```powershell
+   # Test on PowerShell 7
+   pwsh -File ralph.ps1 1
+   ```
 
-### Adding a new quality check
+2. **UTF-8 BOM Handling**
+   ```powershell
+   # Create BOM file and test reading
+   $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"test": true}')
+   [System.IO.File]::WriteAllBytes("test-bom.json", [byte[]](0xEF, 0xBB, 0xBF) + $bytes)
+   $result = Read-RalphJson -Path "test-bom.json"
+   ```
 
-Edit `KIMI.md` and add the check to the "Quality Requirements" section.
+3. **Ctrl+C Handling**
+   - Start Ralph
+   - Press Ctrl+C
+   - Verify graceful shutdown message
+   - Verify no false triggers on Kimi errors
 
-### Modifying the progress format
+4. **Daemon Mode**
+   ```powershell
+   # Start daemon
+   .\ralph.ps1 -Daemon
+   
+   # Check it's running
+   .\ralph.ps1 -Status
+   
+   # Stop daemon
+   Get-Process *ralph* | Stop-Process
+   ```
 
-Update both `KIMI.md` and `skills/ralph/SKILL.md` to keep them in sync.
+5. **Health Check**
+   ```powershell
+   .\ralph.ps1 -Health
+   # Should show all green
+   ```
 
-### Adding platform support
+### Integration Testing
 
-The current implementation is PowerShell for Windows. For cross-platform support, consider:
-- Creating a bash equivalent (`ralph.sh`)
-- Using Python for a universal script
+Create a test PRD and run through full workflow:
+
+```powershell
+# Setup test
+$testDir = "C:\Temp\RalphTest"
+New-Item -ItemType Directory -Force -Path $testDir
+Set-Location $testDir
+git init
+
+# Copy Ralph files
+copy C:\path\to\ralph\*.ps1 .
+copy C:\path\to\ralph\KIMI.md .
+
+# Create minimal PRD
+@'
+{
+  "project": "Test",
+  "branchName": "ralph/test",
+  "userStories": [
+    {
+      "id": "TEST-001",
+      "title": "Test story",
+      "description": "A test story",
+      "priority": 1,
+      "passes": false
+    }
+  ]
+}
+'@ | Set-Content prd.json
+
+# Run test
+.\ralph.ps1 1
+```
+
+---
 
 ## Code Style
 
-- PowerShell: Use explicit parameter names, proper error handling
-- Markdown: Use consistent heading levels, clear examples
-- JSON: Use 2-space indentation
+### PowerShell Conventions
+
+1. **Use full parameter names** (not aliases)
+   ```powershell
+   # Good
+   Get-Content -Path $file -Raw
+   
+   # Bad
+   gc $file -r
+   ```
+
+2. **Explicit error handling**
+   ```powershell
+   try {
+       $result = Do-Something
+   }
+   catch {
+       Write-RalphLog "Error: $_" -Level "ERROR"
+       return $false
+   }
+   ```
+
+3. **Consistent logging**
+   ```powershell
+   Write-RalphLog "Starting operation" -Level "INFO"
+   Write-RalphLog "Warning condition" -Level "WARN"
+   Write-RalphLog "Operation complete" -Level "SUCCESS"
+   ```
+
+4. **Function documentation**
+   ```powershell
+   <#
+   .SYNOPSIS
+       Brief description
+   .DESCRIPTION
+       Detailed description
+   .PARAMETER Name
+       Parameter description
+   #>
+   function My-Function {
+       param([string]$Name)
+       # ...
+   }
+   ```
+
+### File Organization
+
+1. **Shebang** (for direct execution)
+   ```powershell
+   #!/usr/bin/env pwsh
+   #requires -Version 7.0
+   ```
+
+2. **Parameter block** at top
+   ```powershell
+   param(
+       [Parameter(Mandatory = $true)]
+       [string]$RequiredParam,
+       
+       [Parameter()]
+       [int]$OptionalParam = 10
+   )
+   ```
+
+3. **Configuration section**
+   ```powershell
+   # ==============================================================================
+   # CONFIGURATION
+   # ==============================================================================
+   ```
+
+4. **Function sections**
+   ```powershell
+   # ==============================================================================
+   # LOGGING
+   # ==============================================================================
+   ```
+
+---
+
+## Common Tasks
+
+### Adding a New Quality Check
+
+1. Add check to `KIMI.md` in "Quality Requirements" section
+2. Add verification logic in agent instructions
+3. Update `test-plan.json.example` if relevant
+
+### Modifying the Progress Format
+
+Update both:
+1. `KIMI.md` - Agent instructions for progress format
+2. `ralph-core.ps1` - `Add-ProgressEntry` function
+
+### Adding a New Running Mode
+
+1. Add parameter to `ralph.ps1` param block
+2. Add dispatch logic in main section
+3. Create new script (e.g., `ralph-newmode.ps1`)
+4. Update `README.md` with documentation
+
+### Fixing Encoding Issues
+
+If users report UTF-8/BOM issues:
+
+1. Verify `Read-RalphJson` handles BOM correctly
+2. Check all file reads use `-Encoding UTF8`
+3. Ensure JSON writes use `[System.IO.File]::WriteAllText` with `UTF8Encoding($false)`
+4. Test with files created by different editors
+
+---
+
+## Known Limitations
+
+1. **Windows Focused** - Daemon uses Windows-specific features
+   - Linux/Mac use `ralph.sh` with different implementation
+   - Cross-platform PowerShell Core support for daemon planned for v3.0
+
+2. **Single Workspace** - One daemon instance per project
+   - Multiple projects need separate daemon instances
+   - No centralized multi-project management
+
+3. **No Web UI** - All monitoring via command line
+   - Use `ralph-health.ps1` for status
+   - Logs are text files
+
+4. **Manual PRD Creation** - No built-in PRD editor
+   - Use skills (`/skill:prd`) to generate PRDs
+   - Edit JSON manually for changes
+
+---
+
+## Future Improvements
+
+See `IMPROVEMENTS.md` for planned enhancements.
+
+Key areas:
+- Web dashboard for monitoring
+- Multi-project support
+- PRD editor/validator
+- Better Windows Service integration
+- Cross-platform daemon (Python?)
+
+---
+
+## Debugging Tips
+
+### Enable Verbose Logging
+
+```powershell
+$VerbosePreference = "Continue"
+.\ralph.ps1
+```
+
+### Check All Log Files
+
+```powershell
+Get-ChildItem .ralph\logs\*.log | ForEach-Object {
+    Write-Host "`n=== $($_.Name) ===" -ForegroundColor Cyan
+    Get-Content $_.FullName -Tail 20
+}
+```
+
+### Monitor Daemon in Real-Time
+
+```powershell
+# Terminal 1: Run daemon
+.\ralph.ps1 -Daemon
+
+# Terminal 2: Watch logs
+Get-Content .ralph\logs\ralph-daemon.log -Wait
+```
+
+### Test Individual Functions
+
+```powershell
+# Import core module
+. ./ralph-core.ps1
+
+# Test JSON handling
+$test = @{ test = $true; nested = @{ array = @(1, 2, 3) } }
+Write-RalphJson -Path "test.json" -Data $test
+$result = Read-RalphJson -Path "test.json"
+$result | ConvertTo-Json -Depth 5
+```
+
+---
+
+## Release Checklist
+
+Before releasing a new version:
+
+- [ ] Update version number in all scripts
+- [ ] Test on clean Windows VM with PowerShell 7
+- [ ] Test on Windows 10 and Windows 11
+- [ ] Test Linux/Mac version (`ralph.sh`)
+- [ ] Verify all examples in README work
+- [ ] Update CHANGELOG.md
+- [ ] Tag release in git
+
+---
+
+## Support
+
+For issues or questions:
+1. Check `README.md` troubleshooting section
+2. Run `.\ralph.ps1 -Health` for diagnostics
+3. Review logs in `.ralph\logs\`
+4. Open issue on GitHub with log output
