@@ -54,7 +54,7 @@ $ErrorActionPreference = "Stop"
 # CONFIGURATION
 # ==============================================================================
 
-$script:RalphVersion = "2.2.1"
+$script:RalphVersion = "2.2.2"
 $script:DefaultNssmUrl = "https://nssm.cc/release/nssm-2.24.zip"
 $script:NssmDir = Join-Path $env:TEMP "nssm-2.24"
 

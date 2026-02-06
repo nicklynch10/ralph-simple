@@ -402,12 +402,8 @@ function Save-Bead {
             New-Item -ItemType Directory -Force -Path $script:BeadsDir -ErrorAction SilentlyContinue | Out-Null
         }
         
-        # Ensure full schema is initialized
+        # Ensure full schema is initialized (this also updates timestamps)
         $Bead = Initialize-BeadSchema -Bead $Bead
-        
-        # Update timestamps
-        $Bead.updated_at = Get-Date -Format "o"
-        $Bead.ralph_meta.last_updated = Get-Date -Format "o"
         
         # Step 1: Write to temp file
         $json = $Bead | ConvertTo-Json -Depth 10
@@ -517,6 +513,11 @@ function Reset-StuckBeads {
             }
             
             $bead = $content | ConvertFrom-Json
+            
+            # Defensive: ensure ralph_meta exists before accessing
+            if (-not $bead.ralph_meta) {
+                $bead | Add-Member -NotePropertyName "ralph_meta" -NotePropertyValue @{} -Force
+            }
             
             if ($bead.status -eq "in_progress" -and $bead.ralph_meta.last_attempt) {
                 $lastAttempt = [datetime]$bead.ralph_meta.last_attempt
