@@ -19,6 +19,10 @@
 # PowerShell 7 (required)
 winget install Microsoft.PowerShell
 
+# IMPORTANT: All Ralph commands must use PowerShell 7 (pwsh), not PowerShell 5
+# Use: pwsh -File .\ralph.ps1
+# NOT: .\ralph.ps1 (this uses PowerShell 5 and will fail)
+
 # Kimi CLI
 pip install kimi-cli
 
