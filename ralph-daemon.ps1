@@ -1,8 +1,8 @@
 #!/usr/bin/env powershell
 # Ralph for Kimi Code CLI - Production Daemon
-# Version: 2.1.0 - 24/7 Autonomous CI/CD Agent
+# Version: 2.2.2 - 24/7 Autonomous CI/CD Agent
 #
-# REQUIREMENT: PowerShell 7.0+ (Install: winget install Microsoft.PowerShell)
+# REQUIREMENT: PowerShell 5.1+ (Windows PowerShell or PowerShell Core)
 #
 # This daemon provides 24/7 autonomous operation with:
 # - Process isolation (each bead runs in separate process)
@@ -84,7 +84,7 @@ $script:Config = @{
 .SYNOPSIS
     Detects the appropriate PowerShell executable.
 .DESCRIPTION
-    Tries PowerShell 7+ first (pwsh), falls back to PowerShell 5.1 (powershell).
+    Uses Windows PowerShell 5.1 (powershell.exe) for maximum compatibility.
     Returns the full path to the executable.
 #>
 function Get-PowerShellPath {
@@ -92,16 +92,16 @@ function Get-PowerShellPath {
     $onWindows = ($env:OS -eq "Windows_NT")
     
     if ($onWindows) {
-        # Windows: Try pwsh.exe (PS 7+) first
-        $pwsh7 = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
-        if ($pwsh7) {
-            return $pwsh7.Source
-        }
-        
-        # Fallback to Windows PowerShell 5.1
+        # Windows: Use Windows PowerShell 5.1 for compatibility
         $ps5 = Get-Command "powershell.exe" -ErrorAction SilentlyContinue
         if ($ps5) {
             return $ps5.Source
+        }
+        
+        # Fallback to PowerShell 7+ if available
+        $pwsh7 = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
+        if ($pwsh7) {
+            return $pwsh7.Source
         }
     }
     else {
@@ -118,7 +118,7 @@ function Get-PowerShellPath {
         }
     }
     
-    throw "No PowerShell found. Please install PowerShell 7+ (winget install Microsoft.PowerShell)"
+    throw "No PowerShell found. Please install Windows PowerShell 5.1 or PowerShell 7+"
 }
 
 # Cache the PowerShell path

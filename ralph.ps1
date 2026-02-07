@@ -1,8 +1,8 @@
 #!/usr/bin/env powershell
 # Ralph for Kimi Code CLI - Unified Command Interface
-# Version: 2.2.0 - Clean Agent Experience
+# Version: 2.2.2 - PowerShell 5.1+ Compatible
 #
-# REQUIREMENT: PowerShell 7.0+ (Install: winget install Microsoft.PowerShell)
+# REQUIREMENT: PowerShell 5.1+ (Windows PowerShell or PowerShell Core)
 #
 # Usage: ralph <command> [options]
 #
@@ -70,22 +70,22 @@ function Write-Info {
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "✓ $Message" -ForegroundColor Green
+    Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
 function Write-Warning {
     param([string]$Message)
-    Write-Host "⚠ $Message" -ForegroundColor Yellow
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
 function Write-Error {
     param([string]$Message)
-    Write-Host "✗ $Message" -ForegroundColor Red
+    Write-Host "[ERR] $Message" -ForegroundColor Red
 }
 
 function Write-Action {
     param([string]$Message)
-    Write-Host "→ $Message" -ForegroundColor White
+    Write-Host "[>] $Message" -ForegroundColor White
 }
 
 # ==============================================================================
@@ -174,14 +174,13 @@ function Invoke-InitCommand {
     Write-Action "Checking prerequisites..."
     
     $checks = @{
-        PowerShell = $PSVersionTable.PSVersion.Major -ge 7
+        PowerShell = $PSVersionTable.PSVersion.Major -ge 5
         Git = [bool](Get-Command git -ErrorAction SilentlyContinue)
         Kimi = [bool](Get-Command kimi -ErrorAction SilentlyContinue)
     }
     
     if (-not $checks.PowerShell) {
-        Write-Error "PowerShell 7.0+ required"
-        Write-Action "Install: winget install Microsoft.PowerShell"
+        Write-Error "PowerShell 5.1+ required"
         exit 1
     }
     
@@ -668,7 +667,7 @@ function Invoke-DaemonCommand {
         "start" {
             Write-Info "Starting Ralph daemon..."
             if (Test-Path $daemonScript) {
-                Start-Process pwsh -ArgumentList "-File `"$daemonScript`"" -WindowStyle Hidden
+                Start-Process powershell -ArgumentList "-WindowStyle Hidden -File `"$daemonScript`"" -WindowStyle Hidden
                 Start-Sleep -Seconds 2
                 Write-Success "Daemon started"
                 Write-Action "Check status: ralph daemon status"
@@ -774,7 +773,7 @@ function Invoke-StatusCommand {
         Write-Host ""
         
         foreach ($story in $prd.userStories) {
-            $icon = if ($story.passes) { "✓" } else { "○" }
+            $icon = if ($story.passes) { "[PASS]" } else { "[PEND]" }
             $color = if ($story.passes) { "Green" } else { "Yellow" }
             Write-Host "  $icon $($story.id): $($story.title)" -ForegroundColor $color
         }

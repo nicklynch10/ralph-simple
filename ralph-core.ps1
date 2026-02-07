@@ -1,9 +1,9 @@
 #!/usr/bin/env powershell
 # Ralph for Kimi Code CLI - Core Module
 # This module contains the core functionality for Ralph automation
-# Version: 2.1.0
+# Version: 2.2.2
 #
-# REQUIREMENT: PowerShell 7.0+ (Install: winget install Microsoft.PowerShell)
+# REQUIREMENT: PowerShell 5.1+ (Windows PowerShell or PowerShell Core)
 #
 # Usage: Import-Module ./ralph-core.ps1
 # Or: . ./ralph-core.ps1 (dot-source)
@@ -990,7 +990,7 @@ function Show-RalphStatus {
     Write-Host "===================" -ForegroundColor Green
     
     foreach ($story in $Prd.userStories) {
-        $status = if ($story.passes -eq $true) { "✓ PASS" } else { "○ PENDING" }
+        $status = if ($story.passes -eq $true) { "[PASS]" } else { "[PEND]" }
         $color = if ($story.passes -eq $true) { "Green" } else { "Yellow" }
         Write-Host "[$status] $($story.id): $($story.title)" -ForegroundColor $color
     }

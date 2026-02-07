@@ -2,7 +2,7 @@
 
 **Version**: 2.2.2  
 **Status**: Production-ready  
-**Requirement**: PowerShell 7.0+ (Install: `winget install Microsoft.PowerShell`)
+**Requirement**: PowerShell 5.1+ (Windows PowerShell or PowerShell Core)
 
 ---
 
@@ -141,17 +141,17 @@ Ralph is a **continuous 24/7 CI/CD agent** that processes work items (beads) unt
 
 ## Critical Implementation Details
 
-### PowerShell 7 Requirement
+### PowerShell 5.1+ Requirement
 
-**Ralph v2.2.2 requires PowerShell 7.0+**. This provides:
-- Better cross-platform compatibility
-- Improved performance
-- Modern language features
-- Consistent behavior across systems
+**Ralph v2.2.2 requires PowerShell 5.1+**. This is compatible with:
+- Windows PowerShell 5.1 (built into Windows 10/11)
+- PowerShell 7.x (PowerShell Core)
 
-**Install PowerShell 7**:
+PowerShell 5.1 is pre-installed on Windows 10 and Windows 11, so no additional installation is required for most users.
+
+**To check your PowerShell version**:
 ```powershell
-winget install Microsoft.PowerShell
+$PSVersionTable.PSVersion
 ```
 
 ### UTF-8 BOM Handling
@@ -386,13 +386,13 @@ When modifying Ralph scripts:
 4. **Daemon Mode**
    ```powershell
    # Start daemon
-   .\ralph.ps1 -Daemon
+   .\ralph.ps1 daemon start
    
    # Check it's running
-   .\ralph.ps1 -Status
+   .\ralph.ps1 daemon status
    
    # Stop daemon
-   Get-Process *ralph* | Stop-Process
+   .\ralph.ps1 daemon stop
    ```
 
 5. **Health Check**
@@ -490,8 +490,8 @@ copy C:\path\to\ralph\KIMI.md .
 
 1. **Shebang** (for direct execution)
    ```powershell
-   #!/usr/bin/env pwsh
-   #requires -Version 7.0
+   #!/usr/bin/env powershell
+   #requires -Version 5.1
    ```
 
 2. **Parameter block** at top
@@ -634,7 +634,7 @@ $result | ConvertTo-Json -Depth 5
 Before releasing a new version:
 
 - [ ] Update version number in all scripts
-- [ ] Test on clean Windows VM with PowerShell 7
+- [ ] Test on clean Windows VM with PowerShell 5.1
 - [ ] Test on Windows 10 and Windows 11
 - [ ] Test Linux/Mac version (`ralph.sh`)
 - [ ] Verify all examples in README work

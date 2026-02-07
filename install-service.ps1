@@ -1,8 +1,8 @@
 #!/usr/bin/env powershell
 # Ralph for Kimi Code CLI - Windows Service Installer (NSSM)
-# Version: 2.1.0
+# Version: 2.2.2
 #
-# REQUIREMENT: PowerShell 7.0+ (Install: winget install Microsoft.PowerShell)
+# REQUIREMENT: PowerShell 5.1+ (Windows PowerShell or PowerShell Core)
 #
 # This script installs Ralph as a Windows Service using NSSM (Non-Sucking Service Manager)
 # for true 24/7 operation that survives reboots and runs even when no user is logged in.
@@ -92,7 +92,7 @@ EXAMPLES:
     .\install-service.ps1 -Uninstall
 
 REQUIREMENTS:
-    - PowerShell 7.0+ (winget install Microsoft.PowerShell)
+    - PowerShell 5.1+ (Windows PowerShell or PowerShell Core)
     - Administrator privileges (for service installation)
     - NSSM (auto-downloaded if not found)
 
@@ -219,11 +219,11 @@ function Install-RalphService {
         New-Item -ItemType Directory -Force -Path $logDir | Out-Null
     }
     
-    # Install service
+    # Install service (use powershell.exe for PS 5.1 compatibility)
     $arguments = @(
         "install",
         $ServiceName,
-        "pwsh.exe",
+        "powershell.exe",
         "-NoProfile -ExecutionPolicy Bypass -File `"$daemonScript`""
     )
     

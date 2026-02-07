@@ -1,8 +1,8 @@
 #!/usr/bin/env powershell
 # Ralph for Kimi Code CLI - Health Check and Diagnostics
-# Version: 2.1.0
+# Version: 2.2.2
 #
-# REQUIREMENT: PowerShell 7.0+ (Install: winget install Microsoft.PowerShell)
+# REQUIREMENT: PowerShell 5.1+ (Windows PowerShell or PowerShell Core)
 #
 # Usage:
 #   .\ralph-health.ps1                    # Full health check
@@ -119,14 +119,14 @@ function Test-Prerequisites {
         Write-Status "Git" "NOT FOUND" "Red" "Install from https://git-scm.com"
     }
     
-    # Check PowerShell version (7.0+ required)
+    # Check PowerShell version (5.1+ required)
     $psVersion = $PSVersionTable.PSVersion
-    if ($psVersion.Major -ge 7) {
+    if ($psVersion.Major -ge 5) {
         Write-Status "PowerShell" "OK" "Green" "Version $psVersion"
         $results.PowerShell = $true
     }
     else {
-        Write-Status "PowerShell" "ERROR" "Red" "Version $psVersion (7.0+ required - Install: winget install Microsoft.PowerShell)"
+        Write-Status "PowerShell" "ERROR" "Red" "Version $psVersion (5.1+ required)"
     }
     
     return $results.Kimi -and $results.Git -and $results.PowerShell
