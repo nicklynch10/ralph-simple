@@ -15,7 +15,7 @@ Before you can work, Kimi CLI needs a Moonshot API key configured:
 # Check if API key is configured
 kimi config get api_key
 
-# If not set, get one from https://platform.moonshot.cn/
+# If not set, get one from https://platform.moonshot.ai/
 # Then configure it:
 kimi config set api_key sk-your-moonshot-api-key-here
 
@@ -26,7 +26,7 @@ kimi --version
 **Common Mistakes:**
 - ❌ Don't use `kimi login` (not needed)
 - ❌ Don't use web app credentials
-- ✅ Use Moonshot API key from https://platform.moonshot.cn/
+- ✅ Use Moonshot API key from https://platform.moonshot.ai/
 - ✅ Key format: `sk-xxxxxxxxxxxxxxxx`
 
 ---
