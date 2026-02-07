@@ -67,8 +67,8 @@ function Read-Backlog {
     # Read with BOM handling (same pattern as ralph-core.ps1)
     $content = Get-Content -Path $BACKLOG_FILE -Raw -Encoding UTF8
     
-    # Remove BOM if present (0xEF 0xBB 0xBF = `u{feff})
-    if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
+    # Remove BOM if present (0xEF 0xBB 0xBF)
+    if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) {
         $content = $content.Substring(1)
     }
     

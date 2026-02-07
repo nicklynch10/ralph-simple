@@ -12,7 +12,7 @@
 #   .\ralph-health.ps1 -Logs              # Show recent logs
 #   .\ralph-health.ps1 -ResetStuck        # Reset stuck beads
 
-#requires -Version 7.0
+#requires -Version 5.1
 
 param(
     [Parameter()]
@@ -146,7 +146,7 @@ function Test-Configuration {
     if (Test-Path $prdPath) {
         try {
             $content = Get-Content -Path $prdPath -Raw -Encoding UTF8
-            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
+            if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
             $prd = $content | ConvertFrom-Json
             
             $storyCount = ($prd.userStories | Measure-Object).Count
@@ -276,7 +276,7 @@ function Test-Beads {
     foreach ($file in $beadFiles) {
         try {
             $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8
-            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
+            if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
             $bead = $content | ConvertFrom-Json
             
             $stats.Total++
@@ -376,7 +376,7 @@ function Repair-StuckBeads {
     foreach ($file in $beadFiles) {
         try {
             $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8
-            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
+            if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
             $bead = $content | ConvertFrom-Json
             
             if ($bead.status -eq "in_progress" -and $bead.ralph_meta.last_attempt) {

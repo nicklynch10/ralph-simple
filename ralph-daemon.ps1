@@ -21,7 +21,7 @@
 #   # Install as scheduled task (runs on boot)
 #   .\ralph-daemon.ps1 -InstallTask
 #
-#requires -Version 7.0
+#requires -Version 5.1
 
 param(
     [Parameter()]
@@ -88,8 +88,8 @@ $script:Config = @{
     Returns the full path to the executable.
 #>
 function Get-PowerShellPath {
-    # Use different variable name to avoid conflict with automatic $IsWindows
-    $onWindows = $IsWindows -or ($env:OS -eq "Windows_NT")
+    # Check if Windows (PowerShell 5.1 compatible)
+    $onWindows = ($env:OS -eq "Windows_NT")
     
     if ($onWindows) {
         # Windows: Try pwsh.exe (PS 7+) first
@@ -232,7 +232,7 @@ function Get-PrdForBead {
         $content = Get-Content -Path $prdPath -Raw -Encoding UTF8
         
         # Remove BOM if present
-        if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
+        if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) {
             $content = $content.Substring(1)
         }
         
@@ -362,7 +362,7 @@ function Get-Bead {
         $content = Get-Content -Path $beadFile -Raw -Encoding UTF8
         
         # Remove BOM if present (0xEF 0xBB 0xBF = `u{feff})
-        if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
+        if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) {
             $content = $content.Substring(1)
         }
         
@@ -477,7 +477,7 @@ function Get-PendingBeads {
             $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8
             
             # Remove BOM if present
-            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
+            if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) {
                 $content = $content.Substring(1)
             }
             
@@ -519,7 +519,7 @@ function Reset-StuckBeads {
             $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8
             
             # Remove BOM if present
-            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
+            if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) {
                 $content = $content.Substring(1)
             }
             
@@ -995,7 +995,7 @@ function Get-DaemonStatus {
     if (Test-Path $beadsDir) {
         $pendingCount = (Get-ChildItem $beadsDir -Filter "*.json" -ErrorAction SilentlyContinue | Where-Object {
             $content = Get-Content $_.FullName -Raw -Encoding UTF8
-            if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
+            if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
             $bead = $content | ConvertFrom-Json
             $bead.status -eq "pending" -or $bead.status -eq "retry"
         }).Count

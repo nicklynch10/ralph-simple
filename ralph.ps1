@@ -15,7 +15,7 @@
 #   status      Show current status
 #   logs        View recent logs
 
-#requires -Version 7.0
+#requires -Version 5.1
 
 param(
     [Parameter(Position = 0)]
@@ -448,7 +448,7 @@ function Invoke-DoctorCommand {
         # Validate JSON
         try {
             $content = Get-Content $prdFile -Raw -Encoding UTF8
-            if ($content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
+            if ($content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
             $prd = $content | ConvertFrom-Json
             
             if ($prd.userStories) {
@@ -746,7 +746,7 @@ function Invoke-StatusCommand {
         
         if (Test-Path $prdFile) {
             $content = Get-Content $prdFile -Raw -Encoding UTF8
-            if ($content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
+            if ($content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
             $prd = $content | ConvertFrom-Json
             $status.total_stories = $prd.userStories.Count
             $status.completed_stories = ($prd.userStories | Where-Object { $_.passes -eq $true }).Count
@@ -766,7 +766,7 @@ function Invoke-StatusCommand {
     # PRD status
     if (Test-Path $prdFile) {
         $content = Get-Content $prdFile -Raw -Encoding UTF8
-        if ($content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
+        if ($content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
         $prd = $content | ConvertFrom-Json
         
         Write-Host "PRD: $($prd.project)" -ForegroundColor White
@@ -901,7 +901,7 @@ function Invoke-RunCommand {
             
             # Check PRD for completion
             $content = Get-Content $prdFile -Raw -Encoding UTF8
-            if ($content[0] -eq "`u{feff}") { $content = $content.Substring(1) }
+            if ($content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
             $prd = $content | ConvertFrom-Json
             
             $incomplete = $prd.userStories | Where-Object { $_.passes -ne $true }

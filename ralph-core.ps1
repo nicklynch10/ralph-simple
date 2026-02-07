@@ -11,7 +11,7 @@
 # Based on the Ralph pattern by Geoffrey Huntley
 # Adapted for Kimi Code CLI with production-grade reliability
 
-#requires -Version 7.0
+#requires -Version 5.1
 
 $ErrorActionPreference = "Stop"
 
@@ -134,8 +134,8 @@ function Read-RalphJson {
         # Use -Raw to read entire file, -Encoding UTF8 handles BOM correctly
         $content = Get-Content -Path $Path -Raw -Encoding UTF8
         
-        # Remove BOM if present (0xEF 0xBB 0xBF = `u{feff})
-        if ($content.Length -gt 0 -and $content[0] -eq "`u{feff}") {
+        # Remove BOM if present (0xEF 0xBB 0xBF)
+        if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) {
             $content = $content.Substring(1)
         }
         
@@ -672,7 +672,7 @@ function Invoke-RalphArchive {
         $lastBranch = Get-Content $LastBranchPath -Raw -Encoding UTF8
         
         # Clean up potential BOM
-        $lastBranch = $lastBranch -replace "^`u{feff}", ""
+        $lastBranch = $lastBranch -replace "^\uFEFF", ""
         $lastBranch = $lastBranch.Trim()
         
         if ($currentBranch -and $lastBranch -and ($currentBranch -ne $lastBranch)) {

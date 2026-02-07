@@ -20,7 +20,7 @@
 #   - Logs to Windows Event Log
 #   - More reliable for 24/7 operation
 
-#requires -Version 7.0
+#requires -Version 5.1
 
 param(
     [Parameter()]

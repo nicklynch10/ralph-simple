@@ -1,7 +1,7 @@
 # Ralph - 24/7 Autonomous CI/CD Agent
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PowerShell 7](https://img.shields.io/badge/PowerShell-7+-blue.svg)](https://github.com/PowerShell/PowerShell)
+[![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1+-blue.svg)](https://github.com/PowerShell/PowerShell)
 
 **Ralph is a continuous, autonomous CI/CD agent** that runs 24/7, processing work items (beads) from your PRD until all requirements are complete. Think of it as a CI/CD pipeline that never sleeps.
 
@@ -16,12 +16,10 @@
 ### 1. Install Prerequisites
 
 ```powershell
-# PowerShell 7 (required)
+# PowerShell 5.1 or higher (Windows PowerShell or PowerShell Core)
+# Windows PowerShell 5.1 is included with Windows 10/11
+# Or install PowerShell 7 for better performance:
 winget install Microsoft.PowerShell
-
-# IMPORTANT: All Ralph commands must use PowerShell 7 (pwsh), not PowerShell 5
-# Use: pwsh -File .\ralph.ps1
-# NOT: .\ralph.ps1 (this uses PowerShell 5 and will fail)
 
 # Kimi CLI
 pip install kimi-cli
