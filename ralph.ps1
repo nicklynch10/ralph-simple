@@ -10,6 +10,7 @@
 #   init        Initialize a new Ralph workspace
 #   doctor      Run diagnostics and fix common issues
 #   bead        Create a new task bead
+#   sync        Convert PRD stories to beads
 #   run         Run the main Ralph loop
 #   daemon      Manage the background daemon (start/stop/status)
 #   status      Show current status
@@ -128,6 +129,7 @@ EXAMPLES:
     # Create and run beads
     ralph bead "Add user login"
     ralph bead "Fix API bug" --verifier "npm test"
+    ralph sync                              # Convert PRD stories to beads
     ralph run
     ralph run 20
 
@@ -832,6 +834,115 @@ function Invoke-LogsCommand {
 }
 
 # ==============================================================================
+# COMMAND: SYNC (Convert PRD to Beads)
+# ==============================================================================
+
+function Invoke-SyncCommand {
+    Write-Info "Syncing PRD stories to beads..."
+    
+    $prdFile = Join-Path (Get-Location) "prd.json"
+    $beadsDir = Join-Path (Get-Location) ".ralph\beads"
+    
+    if (-not (Test-Path $prdFile)) {
+        Write-Error "prd.json not found"
+        Write-Action "Run: ralph init"
+        exit 1
+    }
+    
+    # Ensure beads directory exists
+    if (-not (Test-Path $beadsDir)) {
+        New-Item -ItemType Directory -Force -Path $beadsDir | Out-Null
+    }
+    
+    # Read PRD
+    try {
+        $content = Get-Content $prdFile -Raw -Encoding UTF8
+        if ($content[0] -eq [char]0xFEFF) { $content = $content.Substring(1) }
+        $prd = $content | ConvertFrom-Json
+    }
+    catch {
+        Write-Error "Failed to read prd.json: $_"
+        exit 1
+    }
+    
+    if (-not $prd.userStories) {
+        Write-Warning "No user stories found in PRD"
+        exit 0
+    }
+    
+    $created = 0
+    $skipped = 0
+    
+    foreach ($story in $prd.userStories) {
+        $beadId = $story.id
+        if (-not $beadId) {
+            Write-Warning "Skipping story without id: $($story.title)"
+            continue
+        }
+        
+        $beadFile = Join-Path $beadsDir "$beadId.json"
+        
+        # Skip if already exists
+        if (Test-Path $beadFile) {
+            Write-Host "  Skipping existing bead: $beadId" -ForegroundColor Gray
+            $skipped++
+            continue
+        }
+        
+        # Create bead
+        $now = Get-Date -Format "o"
+        $bead = @{
+            id = $beadId
+            type = "prd-story"
+            status = if ($story.passes -eq $true) { "completed" } else { "pending" }
+            priority = if ($story.priority) { $story.priority } else { 2 }
+            title = if ($story.title) { $story.title } else { "Untitled" }
+            intent = if ($story.description) { $story.description } else { "" }
+            description = if ($story.description) { $story.description } else { "" }
+            created_at = $now
+            updated_at = $now
+            prd_reference = @{
+                story_id = $beadId
+                project = if ($prd.project) { $prd.project } else { "unknown" }
+                branch_name = if ($prd.branchName) { $prd.branchName } else { "main" }
+            }
+            dod = @{
+                verifiers = @()
+                evidence_required = $true
+                acceptance_criteria = if ($story.acceptanceCriteria) { $story.acceptanceCriteria } else { @() }
+            }
+            constraints = @{
+                max_iterations = 10
+                time_budget_minutes = 60
+                allowed_dirs = @()
+                blocked_dirs = @(".git", ".ralph", "node_modules", "__pycache__")
+            }
+            ralph_meta = @{
+                attempt_count = 0
+                timeout_count = 0
+                stuck_count = 0
+                last_attempt = $null
+                last_error = $null
+                status_detail = $null
+                last_updated = $now
+                created_by = "ralph-sync"
+                version = "2.2.2"
+            }
+        }
+        
+        # Save bead
+        $json = $bead | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($beadFile, $json, [System.Text.UTF8Encoding]::new($false))
+        
+        Write-Success "Created bead: $beadId"
+        $created++
+    }
+    
+    Write-Host ""
+    Write-Info "Sync complete: $created created, $skipped skipped"
+}
+
+# ==============================================================================
 # COMMAND: RUN (Main Loop)
 # ==============================================================================
 
@@ -967,6 +1078,9 @@ switch ($Command.ToLower()) {
     "logs" {
         $lines = if ($Argument -match '^\d+$') { [int]$Argument } else { 20 }
         Invoke-LogsCommand -Lines $lines
+    }
+    "sync" {
+        Invoke-SyncCommand
     }
     default {
         Write-Error "Unknown command: $Command"
